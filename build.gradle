@@ -26,4 +26,5 @@ repositories {
 dependencies {
     implementation "org.springframework.boot:spring-boot-starter-web"
     implementation "org.apache.lucene:lucene-queryparser:8.10.1"
+    implementation "net.java.dev.jna:jna:4.5.1"
 }

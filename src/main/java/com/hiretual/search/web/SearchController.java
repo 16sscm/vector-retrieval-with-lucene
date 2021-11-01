@@ -29,8 +29,21 @@ public class SearchController {
     @Autowired
     SearchService searchService;
 
-    @RequestMapping(value="doc/add", method=RequestMethod.POST)
+    @RequestMapping(value="/index", method=RequestMethod.GET)
     public String insertDocument(HttpServletRequest request, HttpServletResponse response) {
+        // indexBuildService.addDocument(resumes)
+        //TODO: to be implemented
+        return null;
+    }
+    @RequestMapping(value="/finish", method=RequestMethod.GET)
+    public String finishIndexing() {
+        indexBuildService.close();
+        //TODO: to be implemented
+        return null;
+    }
+    @RequestMapping(value="/knn-index", method=RequestMethod.GET)
+    public String ivfpqFlatIndex() {
+        indexBuildService.ivfpqFlatIndex();
         //TODO: to be implemented
         return null;
     }

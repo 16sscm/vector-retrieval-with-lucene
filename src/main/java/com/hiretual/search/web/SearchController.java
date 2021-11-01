@@ -40,4 +40,8 @@ public class SearchController {
         //TODO: to be implemented
         return null;
     }
+    @RequestMapping(value="/" ,method = RequestMethod.GET)
+    public String hello(){
+        return "hello world";
+    }
 }

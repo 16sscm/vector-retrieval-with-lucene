@@ -8,7 +8,11 @@ import com.sun.jna.Native;
 public interface CLib extends Library {
 
 
-    CLib INSTANCE = Native.loadLibrary("vector_search.so", CLib.class);
+    CLib INSTANCE = Native.loadLibrary("libFilterKnn/libFilterKnn.so", CLib.class);
+    /**
+     * get the error message
+     * @return error String
+     */
     String FilterKnn_GetErrorMsg();
     /**
  * @brief Init knn library
@@ -20,7 +24,7 @@ public interface CLib extends Library {
  * @param[in] pFlatFile flat index file
  * @param[in] pIvfpqFile ivfpq index file
  */
-    int FilterKnn_InitLibrary();
+    int FilterKnn_InitLibrary(long dimension,long numIvfCluster,long numPqqSegments,long numPqBitsPerIdx,String pFlatFile,String pIvfpqFile );
     int FilterKnn_UnInitLibrary();
     /**
  * @brief add vectors
@@ -29,10 +33,40 @@ public interface CLib extends Library {
  * @param[in] id vector id
  * @param[in] n 
  */
-    int FilterKnn_AddVectors(float[][]vectors,int[]id,int n);
+    int FilterKnn_AddVectors(float[]vectors,long[]id,long n);
+    /**
+ * @brief save index to file
+ * 
+ * @param[in] pFlatFile flat index file
+ * @param[in] pIvfpqFile ivfpq index file
+ */
     int FilterKnn_Save(String pFlatFile,String pIvfpqFile);
-    int FilterKnn_FlatSearch(float[]vectors,int[]candidateIds,int numCandidateIds,int topK,int[]resultIds,float[] resultDistances);
-    int FilterKnn_IvfpqSearch(float[]vectors,int topK,int[]resultIds,float[] resultDistances);
+    /**
+ * @brief flat search
+ * 
+ * @param[in] query query vector, dimension
+ * @param[in] candidateIds 
+ * @param[in] numCandidateIds 
+ * @param[in] radius distance threshold, 0 means no limit
+ * @param[in] topK 
+ * @param[out] resultIds result id buffer, buffer size: topK
+ * @param[out] resultDistances result distance buffer, buffer size: topK
+ * @return number of searched vectors, <= topK 
+ */
+    long FilterKnn_FlatSearch(float[]query,long[]candidateIds,long numCandidateIds,float radius,long topK,long[]resultIds,float[] resultDistances);
+    /**
+ * @brief ivfpq search
+ * 
+ * @param[in] query query vector, dimension
+ * @param[in] numSearchCluster max number of clusters to search
+ * @param[in] numSearchVector max number of vectors to search
+ * @param[in] radius distance threshold, 0 means no limit
+ * @param[in] topK 
+ * @param[out] resultIds result id buffer, buffer size: topK
+ * @param[out] resultDistances result distance buffer, buffer size: topK
+ * @return number of searched vectors, <= topK 
+ */
+    long FilterKnn_IvfpqSearch(float[]query,long numSearchCluster,long numSearchVector, float radius,long topK,long[]resultIds,float[] resultDistances);
 
    
 }

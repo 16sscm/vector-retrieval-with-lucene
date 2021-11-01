@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
@@ -40,12 +41,20 @@ public class IndexBuildService {
     private static int maxMemory;
     private static FieldType textFieldType = new FieldType(TextField.TYPE_NOT_STORED);
 
+    static String c_index_dir=USER_HOME+ GlobalPropertyUtils.get("c_index_dir");
+    
+    static String pFlatFile=c_index_dir+"/pFlatFile";
+    static String pIvfpqFile=c_index_dir+"/pIvfpqFile";
     private static CLib clib = CLib.INSTANCE;
     static {
         textFieldType.setStoreTermVectors(true);
         textFieldType.setStoreTermVectorPositions(true);
         textFieldType.setStoreTermVectorOffsets(true);
         textFieldType.setStoreTermVectorPayloads(false);
+        File file=new File(c_index_dir);
+        if(!file.exists()){//如果文件夹不存在
+                file.mkdir();//创建文件夹
+        }
         try {
             maxMemory = Integer.parseInt(MAX_MEMORY);
         } catch(NumberFormatException e) {
@@ -63,6 +72,9 @@ public class IndexBuildService {
         } catch (IOException e) {
             logger.warn("fail to initialize index writer");
         }
+        //load knn model(trained) and flat map if exist to make it  searchable,
+        //otherwise you should  add the vector first,and remember to save
+        clib.FilterKnn_InitLibrary(128, 10000, 64, 8, pFlatFile, pIvfpqFile);
     }
 
     public boolean addDocument(List<Resume> resumes) {
@@ -84,22 +96,25 @@ public class IndexBuildService {
         }
     }
      /**
-     * read ids from lucene by docid,get the corresponding vector
+     * read ids from lucene by docid,get the corresponding vector from outside
      * add and save to both ann and bruteforce index
      */
-    public void annBruteforceIndex(int dim,String pFlatFile,String pIvfpqFile) throws IOException {
+    public void ivfpqFlatIndex(int dim) throws IOException {
        
         int totalDocNum=indexReader.maxDoc();
-        int ids[]=new int[totalDocNum];
-        float[][]vectors=new float[totalDocNum][dim];
+        long ids[]=new long[totalDocNum];
+        float[]vectors=new float[totalDocNum*dim];
         for(int i=0;i<totalDocNum;i++){
             Document document=indexSearcher.doc(i);
             String id=document.get("id");
             float[]vector=Utils.getRawMap().get(id);
             ids[i]=i;
-            vectors[i]=vector;
+            for(int j=0;j<dim;j++){
+                vectors[i*dim+j]=vector[j];
+            }
+            
         }
-        clib.FilterKnn_AddVectors(vectors,ids,ids.length);
+        clib.FilterKnn_AddVectors(vectors,ids,totalDocNum);
         clib.FilterKnn_Save(pFlatFile,pIvfpqFile);
        
     }

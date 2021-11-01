@@ -28,7 +28,7 @@ public class FilterIndex {
         this.threshold = threshold;
         // 1. create the index
         this.dir = MMapDirectory.open(Paths.get(directory));
-        clib.FilterKnn_InitLibrary();
+        // clib.FilterKnn_InitLibrary();
         
     }
 

@@ -29,8 +29,10 @@ public class SearchService {
     private static  IndexReader indexReader;
     private static IndexSearcher indexSearcher;
     private static int searchThreshold;
+
     private static CLib clib = CLib.INSTANCE;
     static {
+        
         try {
             searchThreshold = Integer.parseInt(SEARCH_THRESHOLD);
         } catch(NumberFormatException e) {
@@ -43,6 +45,7 @@ public class SearchService {
         } catch (IOException e) {
             logger.warn("fail to initialize index searcher");
         }
+       
     }
      /**
      * search api combine ann and lucene filter
@@ -61,17 +64,28 @@ public class SearchService {
         Query query = builder.build();
         //detection,a little trick ,set the numHits to threshold+1 ,maybe improve performance
         TopDocs filterTopDocs = indexSearcher.search(query, searchThreshold+1);
-        //if filter result num less then threshold,call the  jni bruteforce function with filter ids and query
-        //and the result can be return directly
         long filterNum=filterTopDocs.totalHits.value;
+        //if filter result num less then threshold,call the jni bruteforce function with filtered ids and query
+        //and the result can be return directly as final result
         if (filterNum < searchThreshold) {
             ScoreDoc[]filterScoreDocs=filterTopDocs.scoreDocs;
-            int []ids=new int[filterScoreDocs.length];
-            KNNQueryResult[] results=new KNNQueryResult[size];
-            int[]res_ids=new int[size];
-            float[]distance=new float[size];
-            int res=clib.FilterKnn_FlatSearch(queryWrapper.getKnnQuery().getQueryVector(), ids,ids.length,size,res_ids,distance);
-            assert(res==1);
+            int flatSearchScale=filterScoreDocs.length;
+            long []id=new long[filterScoreDocs.length];
+            for(int i=0;i<flatSearchScale;i++){
+                id[i]=filterScoreDocs[i].doc;
+            }
+            long[]resultIds=new long[size];
+            float[]resultDistances=new float[size];
+            long resultNum=clib.FilterKnn_FlatSearch(queryWrapper.getKnnQuery().getQueryVector(), id, flatSearchScale,19, size, resultIds, resultDistances);
+            if(resultNum<=0){
+                logger.warn("flat search error or got empty result");
+                return null;
+            }
+            KNNQueryResult[] results=new KNNQueryResult[(int)resultNum];
+            for(int i=0;i<resultNum;i++){
+                KNNQueryResult knnQueryResult=new KNNQueryResult((int)resultIds[i], resultDistances[i]);
+                results[i]=knnQueryResult;
+            }
             return results;
         }
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,

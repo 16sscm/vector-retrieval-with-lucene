@@ -34,17 +34,19 @@ import org.apache.lucene.search.Weight;
 // import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.DocIdSetBuilder;
 // import org.elasticsearch.common.io.PathUtils;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 // import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
+// import java.util.stream.Collectors;
 
 /**
  * Calculate query weights and build query scorers.
  */
 public class KNNWeight extends Weight {
 //    private static Logger logger = LogManager.getLogger(KNNWeight.class);
+    private static  Logger logger = LoggerFactory.getLogger(KNNWeight.class);
     private final KNNQuery knnQuery;
     private final float boost;
     // private  KNNQueryResult[] fakeResults;
@@ -69,61 +71,35 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
-//        SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
-//        String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
-//
-//        /**
-//         * In case of compound file, extension would be .hnswc otherwise .hnsw
-//         */
-//        String hnswFileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-//                ? KNNCodecUtil.HNSW_COMPOUND_EXTENSION : KNNCodecUtil.HNSW_EXTENSION;
-//        String hnswSuffix = knnQuery.getField() + hnswFileExtension;
-//        List<String> hnswFiles = reader.getSegmentInfo().files().stream()
-//                .filter(fileName -> fileName.endsWith(hnswSuffix))
-//                .collect(Collectors.toList());
-//
-//        if(hnswFiles.isEmpty()) {
-//            logger.debug("[KNN] No hnsw index found for field {} for segment {}",
-//                    knnQuery.getField(), reader.getSegmentName());
-//            return null;
-//        }
-//
-//        FieldInfo queryFieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
-//
-//        /**
-//         * TODO Add logic to pick up the right nmslib version based on the version
-//         * in the name of the file. As of now we have one version 2.0.11
-//         * So deferring this to future releases
-//         */
-//
-//        Path indexPath = PathUtils.get(directory, hnswFiles.get(0));
-//        final KNNIndex index = knnIndexCache.getIndex(indexPath.toString(), knnQuery.getIndexName());
-//        final KNNQueryResult[] results = index.queryIndex(
-//                knnQuery.getQueryVector(),
-//                knnQuery.getK()
-//        );
-//        final KNNQueryResult[] results=fakeResults;
-        int topK=(int)(knnQuery.getK()*knnQuery.getRation());
-        final KNNQueryResult[] results=new KNNQueryResult[topK];
-        final int[]ids=new int[topK];
-        final float[]distance=new float[topK];
-        int res=CLib.INSTANCE.FilterKnn_IvfpqSearch(knnQuery.getQueryVector(), topK,ids,distance);
-        assert(res==1);
 
+        int topK=(int)(knnQuery.getK()*knnQuery.getRation());
+        // final KNNQueryResult[] results=new KNNQueryResult[topK];
+        long []resultIds=new long[topK];
+        float[]resultDistances=new float[topK];
+        long resultNum=CLib.INSTANCE.FilterKnn_IvfpqSearch(knnQuery.getQueryVector(), 10,100000,19, topK, resultIds, resultDistances);
+        if(resultNum==0){
+            logger.warn("ivfpq search error or got empty result");
+            return null;
+        }
         /**
          * Scores represent the distance of the documents with respect to given query vector.
          * Lesser the score, the closer the document is to the query vector.
          * Since by default results are retrieved in the descending order of scores, to get the nearest
          * neighbors we are inverting the scores.
          */
-        System.out.println("scorer");
-        Map<Integer, Float> scores = Arrays.stream(results).collect(
-                Collectors.toMap(result -> result.getId(), result -> normalizeScore(result.getScore())));
+        
+        Map<Integer, Float> scores=new HashMap<>();
+        // Map<Integer, Float> scores = Arrays.stream(resultIds).collect(
+        //         Collectors.toMap(result -> result.getId(), result -> normalizeScore(result.getScore())));
+        for(int i=0;i<resultNum;i++){
+            scores.put((int)resultIds[i], normalizeScore(resultDistances[i]));
+        }
         int maxDoc = Collections.max(scores.keySet()) + 1;
         DocIdSetBuilder docIdSetBuilder = new DocIdSetBuilder(maxDoc);
         DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(maxDoc);
-        Arrays.stream(results).forEach(result -> setAdder.add(result.getId()));
+        Arrays.stream(resultIds).forEach(result -> setAdder.add((int)result));
         DocIdSetIterator docIdSetIter = docIdSetBuilder.build().iterator();
+        logger.debug("scorer construct");
         return new KNNScorer(this, docIdSetIter, scores, boost);
     }
 

@@ -3,7 +3,6 @@ package com.hiretual.search.utils;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.Locale;
 
 public class DateUtils {
 
@@ -17,20 +16,22 @@ public class DateUtils {
         return msFormatter.format(new Date());
     }
 
-    public static int getMonthsFromDate(String date) {
-        if (date == null || date.length() == 0) {
+    public static int getMonthsFromDate(String fromDate, String endDate) {
+        if (fromDate == null || fromDate.length() == 0 || endDate == null || endDate.length() == 0) {
             return 0;
         }
-        Date d;
+        Date fd;
+        Date ed;
         try {
-            d = positionFormatter.parse(date);
+            fd = positionFormatter.parse(fromDate);
+            ed = positionFormatter.parse(endDate);
         } catch(Exception e) {
             return 0;
         }
         Calendar c1 = Calendar.getInstance();
         Calendar c2 = Calendar.getInstance();
-        c1.setTime(new Date());
-        c2.setTime(d);
+        c1.setTime(ed);
+        c2.setTime(fd);
         int year1 = c1.get(Calendar.YEAR);
         int year2 = c2.get(Calendar.YEAR);
         int month1 = c1.get(Calendar.MONTH);
@@ -45,6 +46,14 @@ public class DateUtils {
         monthInterval %= 12;
         int monthsDiff = yearInterval * 12 + monthInterval + 1;
         return monthsDiff;
+    }
+
+    public static int getMonthsFromDate(String date) {
+        if (date == null || date.length() == 0) {
+            return 0;
+        }
+
+        return getMonthsFromDate(date, positionFormatter.format(new Date()));
     }
 
     public static int getTimestamp(Date date) {

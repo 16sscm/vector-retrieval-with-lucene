@@ -47,7 +47,7 @@ public class IndexBuildService {
       USER_HOME + GlobalPropertyUtils.get("c_index_dir");
   static int dim = Integer.parseInt(GlobalPropertyUtils.get("vector_dim"));
   static String pFlatFile = c_index_dir + "/pFlatFile";
-  static String pIvfpqFile = c_index_dir + "/pIvfpqFile";
+  static String pIvfpqFile = c_index_dir + "/ivfpq.bin";
   private static CLib clib = CLib.INSTANCE;
   static {
     textFieldType.setStoreTermVectors(true);

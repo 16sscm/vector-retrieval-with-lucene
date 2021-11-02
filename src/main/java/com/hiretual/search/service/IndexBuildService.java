@@ -1,21 +1,23 @@
 package com.hiretual.search.service;
 
+import com.hiretual.search.filterindex.*;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.utils.GlobalPropertyUtils;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.*;
 
 @Service
@@ -33,8 +35,17 @@ public class IndexBuildService {
     private static int maxMemory;
     private static Map<String, float[]> uidEmbeddingMap = new HashMap<>();
     public static int embeddingDimension;
+    static String c_index_dir =
+            USER_HOME + GlobalPropertyUtils.get("c_index_dir");
+    static String pFlatFile = c_index_dir + "/pFlatFile";
+    static String pIvfpqFile = c_index_dir + "/pIvfpqFile";
+    private static CLib clib = CLib.INSTANCE;
 
     static {
+        File file = new File(c_index_dir);
+        if (!file.exists()) { //如果文件夹不存在
+            file.mkdir();       //创建文件夹
+        }
         try {
             maxMemory = Integer.parseInt(MAX_MEMORY);
             embeddingDimension = Integer.parseInt(EMBEDDING_DIMENSION);
@@ -51,6 +62,9 @@ public class IndexBuildService {
         } catch (IOException e) {
             logger.warn("fail to initialize index writer");
         }
+        // load knn model(trained) and flat map if exist to make it  searchable,
+        // otherwise you should  add the vector first,and remember to save
+        clib.FilterKnn_InitLibrary(128, 10000, 64, 8, pFlatFile, pIvfpqFile);
     }
 
     public void addDocument(List<Resume> resumes) {
@@ -167,10 +181,10 @@ public class IndexBuildService {
             uidEmbeddingMap.put(resume.getUid(), resume.getEmbedding());
             try {
                 writer.addDocument(doc);
-                if (count % 200 == 0 || count == resumes.size()) {
-                    logger.info("documents flushed to disk, count: " + count);
-                    writer.flush();
-                }
+//                if (count % 200 == 0 || count == resumes.size()) {
+//                    logger.info("documents flushed to disk, count: " + count);
+//                    writer.flush();
+//                }
             } catch(IOException e) {
                 logger.error("fail to add document: " + resume.toString(), e);
             }

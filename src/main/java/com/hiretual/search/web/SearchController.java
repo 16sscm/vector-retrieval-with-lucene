@@ -35,8 +35,8 @@ public class SearchController {
         //TODO: to be implemented
         return null;
     }
-    @RequestMapping(value="/finish", method=RequestMethod.GET)
-    public String finishIndexing() {
+    @RequestMapping(value="/close", method=RequestMethod.GET)
+    public String closeIndexWriter() {
         indexBuildService.close();
         //TODO: to be implemented
         return null;

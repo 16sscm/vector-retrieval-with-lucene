@@ -62,15 +62,17 @@ public class SearchService {
             builder.add(filterQuerys.get(i), BooleanClause.Occur.FILTER);
         }
         Query query = builder.build();
-        //detection,a little trick ,set the numHits to threshold+1 ,maybe improve performance
-        TopDocs filterTopDocs = indexSearcher.search(query, searchThreshold+1);
-        long filterNum=filterTopDocs.totalHits.value;
+        //detection
+        
+        int count=indexSearcher.count(query);
+      
         //if filter result num less then threshold,call the jni bruteforce function with filtered ids and query
         //and the result can be return directly as final result
-        if (filterNum < searchThreshold) {
+        if (count < searchThreshold) {
+            TopDocs filterTopDocs = indexSearcher.search(query, count);//as much as possible
             ScoreDoc[]filterScoreDocs=filterTopDocs.scoreDocs;
             int flatSearchScale=filterScoreDocs.length;
-            long []id=new long[filterScoreDocs.length];
+            long []id=new long[flatSearchScale];
             for(int i=0;i<flatSearchScale;i++){
                 id[i]=filterScoreDocs[i].doc;
             }
@@ -91,7 +93,7 @@ public class SearchService {
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
         //execute this query ，as a result ，we can got a result combine ann with lucene filter
         KNNQuery knnQuery=queryWrapper.getKnnQuery();
-        knnQuery.setRation(totalDocNum/filterNum);
+        knnQuery.setRation(totalDocNum/count);
         builder.add(knnQuery, BooleanClause.Occur.MUST);
         query = builder.build();
         ScoreDoc[] hits = indexSearcher.search(query, size).scoreDocs;

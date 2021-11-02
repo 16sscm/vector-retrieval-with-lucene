@@ -86,9 +86,13 @@ public class IndexBuildService {
   public void close() {
 
     try {
-      writer.commit();
-      // It seems necessary to merge the segments
+      //flush should be invoked by single thread to avoid that merge process miss some segment
+      writer.flush();
+      // It seems necessary to merge the segments,it is horribly costly,
       writer.forceMerge(1);
+      //commit to make it searchable
+      writer.commit();
+      //close or open resources and release the write lock
       writer.close();
 
     } catch (IOException e) {

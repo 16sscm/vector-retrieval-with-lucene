@@ -26,7 +26,7 @@ public class RequestParser {
                 content.append(line);
             }
             String parameterStr = content.toString().trim();
-            logger.info(parameterStr);
+//            logger.info(parameterStr);
             returnNode = mapper.readTree(parameterStr);
         } catch (Exception e) {
             logger.error("fail to parse parameter string to json object", e);
@@ -45,13 +45,5 @@ public class RequestParser {
         }
 
         return returnNode;
-    }
-
-    public static String getIP(HttpServletRequest request) {
-        String realIp = request.getHeader("x-real-ip");
-        if (StringUtils.isEmpty(realIp)) {
-            realIp = request.getRemoteAddr();
-        }
-        return realIp;
     }
 }

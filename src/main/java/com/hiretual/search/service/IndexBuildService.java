@@ -46,8 +46,8 @@ public class IndexBuildService {
 
   static {
     File file = new File(c_index_dir);
-    if (!file.exists()) { //如果文件夹不存在
-      file.mkdir();       //创建文件夹
+    if (!file.exists()) { 
+      file.mkdir();    
     }
     try {
       maxMemory = Integer.parseInt(MAX_MEMORY);
@@ -218,6 +218,7 @@ public class IndexBuildService {
 
   public synchronized void mergeSegments() {
     try {
+      logger.info("OK ,i am going to merge,maybe it is horribly costly depends on index scale,please wait...");
       writer.forceMerge(1);
       writer.commit();
       writer.close();

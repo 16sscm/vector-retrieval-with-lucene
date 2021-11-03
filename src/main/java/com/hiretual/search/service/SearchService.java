@@ -1,6 +1,8 @@
 package com.hiretual.search.service;
 
 import com.hiretual.search.utils.GlobalPropertyUtils;
+
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.store.FSDirectory;
@@ -14,7 +16,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 import com.hiretual.search.filterindex.*;
 
@@ -54,7 +59,7 @@ public class SearchService {
      * @return
      * @throws IOException
      */
-    public KNNQueryResult[] search(FakeQueryWrapper queryWrapper, int size) throws IOException {
+    public KNNResult[] search(FakeQueryWrapper queryWrapper, int size) throws IOException {
         int totalDocNum=indexReader.maxDoc();
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         List<Query> filterQuerys = queryWrapper.getFilterQuerys();
@@ -83,12 +88,12 @@ public class SearchService {
                 logger.warn("flat search error or got empty result");
                 return null;
             }
-            KNNQueryResult[] results=new KNNQueryResult[(int)resultNum];
-            for(int i=0;i<resultNum;i++){
-                KNNQueryResult knnQueryResult=new KNNQueryResult((int)resultIds[i], resultDistances[i]);
-                results[i]=knnQueryResult;
-            }
-            return results;
+            // KNNQueryResult[] results=new KNNQueryResult[(int)resultNum];
+            // for(int i=0;i<resultNum;i++){
+            //     KNNQueryResult knnQueryResult=new KNNQueryResult((int)resultIds[i], KNNWeight.normalizeScore( resultDistances[i]));
+            //     results[i]=knnQueryResult;
+            // }
+            return convertFlatResult2KNNResult(resultNum,resultIds,resultDistances);
         }
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
         //execute this query ，as a result ，we can got a result combine ann with lucene filter
@@ -97,9 +102,48 @@ public class SearchService {
         builder.add(knnQuery, BooleanClause.Occur.MUST);
         query = builder.build();
         ScoreDoc[] hits = indexSearcher.search(query, size).scoreDocs;
-        KNNQueryResult[] results = Utils.transformScoreDocToKNNQueryResult(hits);
-        return results;
+        // KNNQueryResult[] results = Utils.transformScoreDocToKNNQueryResult(hits);
+        return convertScoreDoc2KNNResult(hits);
 
+    }
+    private KNNResult[] convertFlatResult2KNNResult(long size,long[]resultIds,float[]resultDistances){
+       
+        try{
+            KNNResult[] results=new KNNResult[(int)size];
+            HashSet<String> uidField = new HashSet<>();
+            uidField.add("uid");
+            for(int i=0;i<size;i++){
+                Document doc =indexReader.document((int)resultIds[i],uidField);
+                String uid = doc.get("uid");
+                results[i]=new KNNResult(uid, KNNWeight.normalizeScore( resultDistances[i]));
+                
+            }
+            return results;
+        }catch(IOException e){
+            e.printStackTrace();
+           
+        }
+        return null;
+       
+    }
+    private  KNNResult[] convertScoreDoc2KNNResult(ScoreDoc[] scoreDocs){
+       
+        try{
+            KNNResult[] results=new KNNResult[scoreDocs.length];
+            HashSet<String> uidField = new HashSet<>();
+            uidField.add("uid");
+            for(int i=0;i<scoreDocs.length;i++){
+                Document doc =indexReader.document(scoreDocs[i].doc,uidField);
+                String uid = doc.get("uid");
+                results[i]=new KNNResult(uid, scoreDocs[i].score);
+            }
+            return results;
+        }catch(IOException e){
+            e.printStackTrace();
+           
+        }
+        return null;
+       
     }
 
 }

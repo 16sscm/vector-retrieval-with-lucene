@@ -180,13 +180,15 @@ public class Resume {
                 }
                 if (analytics.has("norm_location")) {
                     JsonNode loc = analytics.get("norm_location");
-                    this.locRaw = loc.get("location_fmt").isNull() ? "" : loc.get("location_fmt").asText();
-                    this.locContinent = loc.get("continent").isNull() ? "" : loc.get("continent").asText();
-                    this.locNation = loc.get("country").isNull() ? "" : loc.get("country").asText();
-                    this.locState = loc.get("state").isNull() ? "" : loc.get("state").asText();
-                    this.locCity = loc.get("city").isNull() ? "" : loc.get("city").asText();
-                    this.locLat = loc.get("latitude").isNull() ? 0 : loc.get("latitude").asDouble();
-                    this.locLon = loc.get("longitude").isNull() ? 0 : loc.get("longitude").asDouble();
+                    if (!loc.isEmpty()) {
+                        this.locRaw = loc.get("location_fmt").isNull() ? "" : loc.get("location_fmt").asText();
+                        this.locContinent = loc.get("continent").isNull() ? "" : loc.get("continent").asText();
+                        this.locNation = loc.get("country").isNull() ? "" : loc.get("country").asText();
+                        this.locState = loc.get("state").isNull() ? "" : loc.get("state").asText();
+                        this.locCity = loc.get("city").isNull() ? "" : loc.get("city").asText();
+                        this.locLat = loc.get("latitude").isNull() ? 0 : loc.get("latitude").asDouble();
+                        this.locLon = loc.get("longitude").isNull() ? 0 : loc.get("longitude").asDouble();
+                    }
                 }
                 if (analytics.has("it_analytics")) {
                     JsonNode it = analytics.get("it_analytics");

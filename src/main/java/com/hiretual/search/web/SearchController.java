@@ -29,12 +29,12 @@ public class SearchController {
     @Autowired
     SearchService searchService;
 
-    @RequestMapping(value="health/check", method={RequestMethod.GET, RequestMethod.POST})
+    @RequestMapping(value="/health/check", method={RequestMethod.GET, RequestMethod.POST})
     public String healthCheck() {
         return "ok";
     }
 
-    @RequestMapping(value="doc/add", method=RequestMethod.POST, produces="application/json;charset=UTF-8")
+    @RequestMapping(value="/doc/add", method=RequestMethod.POST, produces="application/json;charset=UTF-8")
     public void insertDocument(HttpServletRequest request) {
         JsonNode array = RequestParser.getPostParameter(request);
         List<Resume> list = new ArrayList<>();
@@ -45,7 +45,7 @@ public class SearchController {
         indexBuildService.addDocument(list);
     }
 
-    @RequestMapping(value="index/merge", method={RequestMethod.GET, RequestMethod.POST})
+    @RequestMapping(value="/index/merge", method={RequestMethod.GET, RequestMethod.POST})
     public void mergeIndex() {
         indexBuildService.mergeSegments();
     }

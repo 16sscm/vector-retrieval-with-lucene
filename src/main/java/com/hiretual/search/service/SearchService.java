@@ -106,6 +106,7 @@ public class SearchService {
         return convertScoreDoc2KNNResult(hits);
 
     }
+   
     private KNNResult[] convertFlatResult2KNNResult(long size,long[]resultIds,float[]resultDistances){
        
         try{

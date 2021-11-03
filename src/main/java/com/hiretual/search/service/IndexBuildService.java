@@ -3,6 +3,8 @@ package com.hiretual.search.service;
 import com.hiretual.search.filterindex.*;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.utils.GlobalPropertyUtils;
+import com.hiretual.search.utils.JedisUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -16,6 +18,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -32,11 +35,14 @@ public class IndexBuildService {
       GlobalPropertyUtils.get("max.memory");
   private static final String EMBEDDING_DIMENSION =
       GlobalPropertyUtils.get("embedding.dimension");
+  
+  @Autowired
+  private JedisUtils jedisUtils;
 
   private static Analyzer analyzer = new StandardAnalyzer();
   private static IndexWriter writer;
   private static int maxMemory;
-  private static Map<String, float[]> uidEmbeddingMap = new HashMap<>();
+  // private static Map<String, float[]> uidEmbeddingMap = new HashMap<>();
   public static int embeddingDimension;
   static String c_index_dir =
       USER_HOME + GlobalPropertyUtils.get("c_index_dir");
@@ -202,7 +208,9 @@ public class IndexBuildService {
       }
 
       count++;
-      uidEmbeddingMap.put(resume.getUid(), resume.getEmbedding());
+      // uidEmbeddingMap.put(resume.getUid(), resume.getEmbedding());
+      jedisUtils.set(resume.getUid(), resume.getEmbedding());
+      // logger.info("set uid->vector to pika,uid:"+resume.getUid());
       try {
         writer.addDocument(doc);
         //                if (count % 200 == 0 || count == resumes.size()) {
@@ -213,7 +221,8 @@ public class IndexBuildService {
         logger.error("fail to add document: " + resume.toString(), e);
       }
     }
-    logger.info("total docs: " + uidEmbeddingMap.size());
+    logger.info("add finish,num:"+resumes.size());
+    //  logger.info("total docs: " + uidEmbeddingMap.size());
   }
 
   public synchronized void mergeSegments() {
@@ -237,6 +246,7 @@ public class IndexBuildService {
       LeafReaderContext lrc = list.get(0);
       LeafReader lr = lrc.reader();
       int maxDocId = lr.maxDoc();
+      
       int batchSize = 1000;
       int integralBatch = maxDocId / batchSize;
       int remainBatchSize = maxDocId % batchSize;
@@ -285,10 +295,12 @@ public class IndexBuildService {
 
       if (doc != null) {
         String uid = doc.get("uid");
-        if (uidEmbeddingMap.containsKey(uid)) {
-          float[] vector = uidEmbeddingMap.get(uid);
+        float[] v = jedisUtils.get(uid);
+      
+        if (v != null) {
+          // float[] vector = uidEmbeddingMap.get(uid);
           for (int k = 0; k < embeddingDimension; k++) {
-            vectors[j * embeddingDimension + k] = vector[k];
+            vectors[j * embeddingDimension + k] = v[k];
           }
           id[j]=docIdStart;
           docIdStart++;
@@ -311,4 +323,17 @@ public class IndexBuildService {
     }
     return true;
   }
+
+  public int getIndexSize(){
+    try{
+        writer.commit();
+        IndexReader indexReader=DirectoryReader.open(FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+        return indexReader.maxDoc();
+    }catch(Exception e){
+        e.printStackTrace();
+        return 0;
+    }
+   
+}
+  
 }

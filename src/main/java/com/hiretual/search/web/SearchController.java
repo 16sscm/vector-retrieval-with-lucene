@@ -44,12 +44,16 @@ public class SearchController {
         }
         indexBuildService.addDocument(list);
     }
-
+   
     @RequestMapping(value="/index/merge", method={RequestMethod.GET, RequestMethod.POST})
     public void mergeIndex() {
         indexBuildService.mergeSegments();
     }
 
+    @RequestMapping(value="/index/size", method={RequestMethod.GET})
+    public int getIndexSize() {
+        return indexBuildService.getIndexSize();
+    }
     @RequestMapping(value="/search", method=RequestMethod.POST)
     public String search(HttpServletRequest request, HttpServletResponse response) {
         //TODO: to be implemented

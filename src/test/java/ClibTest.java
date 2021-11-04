@@ -14,7 +14,7 @@ public class ClibTest {
 
         System.out.println("loading...");
         long t=System.currentTimeMillis();
-        int suc=cLib.FilterKnn_InitLibrary(128,100000,64,8,"/root/c_index/pFlatFile","/root/c_index/ivfpq.bin");
+        int suc=cLib.FilterKnn_InitLibrary(128,100000,64,8,"/root/c_index/flat.bin","/root/c_index/ivfpq.bin");
         System.out.println("done!cost:"+(System.currentTimeMillis()-t));
         System.out.println(suc+"tt");
 

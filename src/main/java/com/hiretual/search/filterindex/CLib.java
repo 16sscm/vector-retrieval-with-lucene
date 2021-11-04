@@ -1,14 +1,15 @@
 package com.hiretual.search.filterindex;
 
+import com.hiretual.search.utils.GlobalPropertyUtils;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 
 
 
 public interface CLib extends Library {
-
-
-    CLib INSTANCE = Native.loadLibrary("libFilterKnn/libFilterKnn.so", CLib.class);
+   String home=System.getProperty("user.home");
+   String clibFile=GlobalPropertyUtils.get("c_lib_file");
+   CLib INSTANCE = Native.loadLibrary(home+clibFile, CLib.class);
     /**
      * get the error message
      * @return error String

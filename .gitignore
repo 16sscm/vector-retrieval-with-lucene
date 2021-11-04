@@ -1,7 +1,9 @@
 .gradle
 /build/
 /bin
+
 /.vscode
+nohup.out
 !gradle/wrapper/gradle-wrapper.jar
 
 ### STS ###

@@ -60,7 +60,13 @@ public class SearchService {
      * @throws IOException
      */
     public KNNResult[] search(FakeQueryWrapper queryWrapper, int size) throws IOException {
+
         int totalDocNum=indexReader.maxDoc();
+        int numDocs=indexReader.numDocs();
+        if(totalDocNum!=numDocs){
+          logger.warn("stop search,invalid document num for index,numDocs: "+numDocs+",maxDoc:"+totalDocNum);
+          return null;
+        }
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         List<Query> filterQuerys = queryWrapper.getFilterQuerys();
         for (int i = 0; i < filterQuerys.size(); i++) {

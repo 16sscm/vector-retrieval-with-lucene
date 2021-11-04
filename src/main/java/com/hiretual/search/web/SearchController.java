@@ -50,9 +50,9 @@ public class SearchController {
         indexBuildService.mergeSegments();
     }
 
-    @RequestMapping(value="/index/size", method={RequestMethod.GET})
-    public int getIndexSize() {
-        return indexBuildService.getIndexSize();
+    @RequestMapping(value="/index/commit", method={RequestMethod.GET})
+    public int commitAndCheckIndexSize() {
+        return indexBuildService.commitAndCheckIndexSize();
     }
     @RequestMapping(value="/search", method=RequestMethod.POST)
     public String search(HttpServletRequest request, HttpServletResponse response) {

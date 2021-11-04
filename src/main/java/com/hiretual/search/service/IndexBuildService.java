@@ -246,7 +246,11 @@ public class IndexBuildService {
       LeafReaderContext lrc = list.get(0);
       LeafReader lr = lrc.reader();
       int maxDocId = lr.maxDoc();
-      
+      int numDocs=lr.numDocs();
+      if(maxDocId!=numDocs){
+        logger.warn("stop add to jna,invalid document num for segment,numDocs: "+numDocs+",maxDoc:"+maxDocId);
+        return;
+      }
       int batchSize = 1000;
       int integralBatch = maxDocId / batchSize;
       int remainBatchSize = maxDocId % batchSize;
@@ -324,14 +328,19 @@ public class IndexBuildService {
     return true;
   }
 
-  public int getIndexSize(){
+  public int commitAndCheckIndexSize(){
     try{
         writer.commit();
         IndexReader indexReader=DirectoryReader.open(FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
-        return indexReader.maxDoc();
+        int maxDoc=indexReader.maxDoc();
+        int numDocs=indexReader.numDocs();
+        if(maxDoc!=numDocs){
+          logger.warn("invalid document num for index,numDocs: "+numDocs+",maxDoc:"+maxDoc);
+        }
+        return numDocs;
     }catch(Exception e){
         e.printStackTrace();
-        return 0;
+        return -1;
     }
    
 }

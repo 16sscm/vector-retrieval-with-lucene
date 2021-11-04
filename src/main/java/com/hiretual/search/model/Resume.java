@@ -181,13 +181,27 @@ public class Resume {
                 if (analytics.has("norm_location")) {
                     JsonNode loc = analytics.get("norm_location");
                     if (!loc.isEmpty()) {
-                        this.locRaw = loc.get("location_fmt").isNull() ? "" : loc.get("location_fmt").asText();
-                        this.locContinent = loc.get("continent").isNull() ? "" : loc.get("continent").asText();
-                        this.locNation = loc.get("country").isNull() ? "" : loc.get("country").asText();
-                        this.locState = loc.get("state").isNull() ? "" : loc.get("state").asText();
-                        this.locCity = loc.get("city").isNull() ? "" : loc.get("city").asText();
-                        this.locLat = loc.get("latitude").isNull() ? 0 : loc.get("latitude").asDouble();
-                        this.locLon = loc.get("longitude").isNull() ? 0 : loc.get("longitude").asDouble();
+                        if (loc.has("location_fmt")) {
+                            this.locRaw = loc.get("location_fmt").isNull() ? "" : loc.get("location_fmt").asText();
+                        }
+                        if (loc.has("continent")) {
+                            this.locContinent = loc.get("continent").isNull() ? "" : loc.get("continent").asText();
+                        }
+                        if (loc.has("country")) {
+                            this.locNation = loc.get("country").isNull() ? "" : loc.get("country").asText();
+                        }
+                        if (loc.has("state")) {
+                            this.locState = loc.get("state").isNull() ? "" : loc.get("state").asText();
+                        }
+                        if (loc.has("city")) {
+                            this.locCity = loc.get("city").isNull() ? "" : loc.get("city").asText();
+                        }
+                        if (loc.has("latitude")) {
+                            this.locLat = loc.get("latitude").isNull() ? 0 : loc.get("latitude").asDouble();
+                        }
+                        if (loc.has("longitude")) {
+                            this.locLon = loc.get("longitude").isNull() ? 0 : loc.get("longitude").asDouble();
+                        }
                     }
                 }
                 if (analytics.has("it_analytics")) {
@@ -231,8 +245,10 @@ public class Resume {
                             .append(education.get("education_degree").asText()).append(',')
                             .append(education.get("education_degree_level").asText()).append(',')
                             .append(education.get("education_description").asText()).append(',');
-                    for (JsonNode normalizedMajor : education.get("normed_education_major")) {
-                        educationInfo.append(normalizedMajor.asText()).append(',');
+                    if (education.has("normed_education_major")) {
+                        for (JsonNode normalizedMajor : education.get("normed_education_major")) {
+                            educationInfo.append(normalizedMajor.asText()).append(',');
+                        }
                     }
                 }
             }
@@ -243,7 +259,7 @@ public class Resume {
                 Map<String, Integer> map = new HashMap<>();
                 for (JsonNode position : jsonNode.get("position")) {
                     String companyName = position.get("position_company_name").asText().toLowerCase();
-                    String companyId = position.get("company_id").asText();
+                    String companyId = position.has("company_id") ? position.get("company_id").asText() : "";
                     if (position.get("position_iscurrent").asBoolean()) {
                         this.companyCurrent = companyName;
                         this.companyIdCurrent = companyId;
@@ -266,8 +282,10 @@ public class Resume {
                     positionInfo.append(position.get("position_title").asText()).append(',')
                             .append(position.get("position_company_name").asText()).append(',')
                             .append(position.get("position_summary").asText()).append(',');
-                    for (JsonNode normalizedTitle : position.get("normed_position_title")) {
-                        positionInfo.append(normalizedTitle.asText()).append(',');
+                    if (position.has("normed_position_title")) {
+                        for (JsonNode normalizedTitle : position.get("normed_position_title")) {
+                            positionInfo.append(normalizedTitle.asText()).append(',');
+                        }
                     }
                 }
                 if (!StringUtils.isEmpty(this.companyCurrent)) {

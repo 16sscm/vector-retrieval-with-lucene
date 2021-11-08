@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.List;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
@@ -35,6 +35,7 @@ public class IndexBuildService {
       GlobalPropertyUtils.get("max.memory");
   private static final String EMBEDDING_DIMENSION =
       GlobalPropertyUtils.get("embedding.dimension");
+  private static String NUM_IVF_CLUSTER=GlobalPropertyUtils.get("num_ivf_cluster");
   
   @Autowired
   private JedisUtils jedisUtils;
@@ -46,8 +47,10 @@ public class IndexBuildService {
   public static int embeddingDimension;
   static String c_index_dir =
       USER_HOME + GlobalPropertyUtils.get("c_index_dir");
-  static String pFlatFile = c_index_dir + "/flat.bin";
-  static String pIvfpqFile = c_index_dir + "/ivfpq.bin";
+
+  static String pFlatFile = c_index_dir + GlobalPropertyUtils.get("flat_file");
+  static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
+  public static int numIvfCluster;
   private static CLib clib = CLib.INSTANCE;
 
   static {
@@ -58,6 +61,7 @@ public class IndexBuildService {
     try {
       maxMemory = Integer.parseInt(MAX_MEMORY);
       embeddingDimension = Integer.parseInt(EMBEDDING_DIMENSION);
+      numIvfCluster=Integer.parseInt(NUM_IVF_CLUSTER);
     } catch (NumberFormatException e) {
       logger.warn("fail to initialize max memory for index writer");
     }
@@ -73,7 +77,10 @@ public class IndexBuildService {
     }
     // load knn model(trained) and flat map if exist to make it  searchable,
     // otherwise you should  add the vector first,and remember to save
-    clib.FilterKnn_InitLibrary(128, 100000, 64, 8, pFlatFile, pIvfpqFile);
+    int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 64, 8, pFlatFile, pIvfpqFile);
+    if(suc==0){
+      logger.error("fail to initialize clib");
+    }
   }
 
   public void addDocument(List<Resume> resumes) {
@@ -250,30 +257,32 @@ public class IndexBuildService {
       if(maxDocId!=numDocs){
         logger.warn("stop add to jna,invalid document num for segment,numDocs: "+numDocs+",maxDoc:"+maxDocId);
         return;
+      }else{
+        logger.info(maxDocId+" documents to do clib index");
       }
-      int batchSize = 1000;
+      jedisUtils.init();
+      int docId = 0;
+      maxDocId=maxDocId-docId;
+
+      int batchSize = 10000;//test to be appropriate value
       int integralBatch = maxDocId / batchSize;
       int remainBatchSize = maxDocId % batchSize;
-      int docId = 0;
+      
       for (int i = 0; i < integralBatch; i++) {
-        if(!addVectors(lr,batchSize,docId)){
-         return;
-        }
+        addVectors(lr,batchSize,docId);
         docId+=batchSize;
       }
       if(remainBatchSize>0){
-        if(!addVectors(lr,remainBatchSize,docId)){
-          return;
-        }
+        addVectors(lr,remainBatchSize,docId);
         docId+=remainBatchSize;
       }
-    
+      reader.close();
+      jedisUtils.close();
       int success=clib.FilterKnn_Save(pFlatFile, pIvfpqFile);
       if(success!=1){
         logger.error("save jna call error " );
         
       }
-      reader.close();
       logger.info("vector index done!!! total " + docId +
                    " embeddings indexed!!!");
     } catch (IOException e) {
@@ -287,47 +296,80 @@ public class IndexBuildService {
    * @return false if error occur
    * @throws IOException
    */
-  private boolean addVectors(LeafReader lr, int size, int docIdStart) throws IOException {
-    logger.info("add vector,size:"+size+",start docid:"+docIdStart);
+  private void addVectors(LeafReader lr, int size, int docIdStart) throws IOException {
+    long s=System.currentTimeMillis();
+    
     Set<String> uidField = new HashSet<>();
     uidField.add("uid");
-    float[] vectors = new float[size * embeddingDimension];
-    long []id=new long[size];
+    List<String>uids=new ArrayList<>();
+    List<Integer>docIds=new ArrayList<>();
+
+    logger.info("reading lucene...");
+    long t=System.currentTimeMillis();
     for (int j = 0; j < size; j++) {
 
       Document doc = lr.document(docIdStart, uidField);
 
       if (doc != null) {
         String uid = doc.get("uid");
-        float[] v = jedisUtils.get(uid);
-      
-        if (v != null) {
-          // float[] vector = uidEmbeddingMap.get(uid);
-          for (int k = 0; k < embeddingDimension; k++) {
-            vectors[j * embeddingDimension + k] = v[k];
-          }
-          id[j]=docIdStart;
-          docIdStart++;
-          // logger.info("docID:" + docIdStart + "|uid:" + uid +
-          //             "|vector:" + Arrays.toString(vector));
-
-        } else {
-          logger.warn("no vector found for uid: " + uid);
-          return false;
-        }
+        uids.add(uid);
+        docIds.add(docIdStart);
       } else {
         logger.warn("document is null for docId : " + docIdStart);
-        return false;
+        // return false;
+      }
+      docIdStart++;
+    }
+    logger.info("done!cost:"+(System.currentTimeMillis()-t));
+
+    int existDocSize = docIds.size();
+    long id[] = new long[existDocSize];
+    for (int i = 0; i < existDocSize; i++) {
+      id[i] = docIds.get(i);
+    }
+    float[] vectors = new float[existDocSize * embeddingDimension];
+    logger.info("reading pika...");
+     t=System.currentTimeMillis();
+    int batchSize = 1000;
+    int integralBatch = existDocSize / batchSize;
+    int remainBatchSize = existDocSize % batchSize;
+    List<float[]> list=new ArrayList<>();
+    int from=0;
+    //can not get pika multithread for the uid is in order
+    for (int i = 0; i < integralBatch; i++) {
+      list.addAll(jedisUtils.mget(uids.subList(from, from+batchSize)));
+      from+=batchSize;
+    }
+    if(remainBatchSize>0){
+      list.addAll(jedisUtils.mget(uids.subList(from, from+remainBatchSize)));
+      from+=remainBatchSize;
+    }
+   
+    logger.info("done!cost:"+(System.currentTimeMillis()-t));
+    for (int i = 0; i < list.size(); i++) {
+      float[] v = list.get(i);
+
+      if (v != null) {
+        // float[] vector = uidEmbeddingMap.get(uid);
+        for (int j = 0; j < embeddingDimension; j++) {
+          vectors[i * embeddingDimension + j] = v[j];
+        }
+
+      } else {
+        logger.warn("no vector found for uid: " + uids.get(i)+"，the corresponding docid:"+docIds.get(i)+
+        "，and the corresponding vector will be filled with 0");
+        // return false;
       }
     }
+    logger.info("add vector...");
+     t=System.currentTimeMillis();
     int success=clib.FilterKnn_AddVectors(vectors, id, size);
     if(success!=1){
       logger.warn("add jna call error " );
-      return false;
     }
-    return true;
+    logger.info("done!cost:"+(System.currentTimeMillis()-t));
+    logger.info("add vector,size:"+size+",end docid:"+docIdStart+",cost:"+(System.currentTimeMillis()-s));
   }
-
   public int commitAndCheckIndexSize(){
     try{
         writer.commit();
@@ -344,5 +386,15 @@ public class IndexBuildService {
     }
    
 }
+  /**
+   * close indexwriter anyway to make release writer lock
+   */
+  public static void shutDown(){
+    try{
+      writer.close();
+    }catch(IOException e){
+      e.printStackTrace();
+    }
   
+  }
 }

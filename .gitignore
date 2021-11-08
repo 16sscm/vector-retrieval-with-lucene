@@ -3,9 +3,10 @@
 /bin
 
 /.vscode
-nohup.out
-!gradle/wrapper/gradle-wrapper.jar
 
+!gradle/wrapper/gradle-wrapper.jar
+*.out
+*.log
 ### STS ###
 .apt_generated
 .classpath

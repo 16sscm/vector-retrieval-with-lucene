@@ -4,7 +4,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Jedis;
 
 @Component
@@ -20,25 +23,70 @@ public class JedisUtils{
     @Autowired
     private JedisPool jedisPool;
 
+    Jedis jedis ;
+   
+    public void init(){
+        jedis = jedisPool.getResource();
+    }
     public void set(String key, float[] array) {
-        Jedis jedis = jedisPool.getResource();
+        // Jedis jedis = jedisPool.getResource();
         try{
             jedis.set(key.getBytes(), serialize(array));
         } finally {
-            jedisPool.returnResource(jedis);
+            // jedisPool.returnResource(jedis);
             // jedis.close();
         }
     }
 
     public float[] get(String key) {
-        Jedis jedis = jedisPool.getResource();
+        // Jedis jedis = jedisPool.getResource();
         try{
             return unserialize(jedis.get(key.getBytes()));
         } catch(Exception e) {
             return null;
         } finally {
             // jedisPool.returnResource(jedis);
-            jedis.close();
+            // jedis.close();
+        }
+    }
+    public List<float[]>pipeline(List<String> keys){
+        // Jedis jedis = jedisPool.getResource();
+        Pipeline pipeline = jedis.pipelined();
+        List<float[]> ret = new ArrayList<>();
+        for(String key :keys){
+           pipeline.get(key.getBytes());
+            
+        }
+        List<Object>list=pipeline.syncAndReturnAll();
+        for(Object o:list){
+            byte[] bytes=(byte[])o;
+            ret.add(unserialize(bytes));
+        }
+        // jedis.close();
+        return ret;
+    }
+    public List<float[]> mget(List<String> keys) {
+        
+        // Jedis jedis = jedisPool.getResource();
+        byte[][] array = new byte[keys.size()][];
+        for (int i = 0; i < keys.size(); i++){
+            
+            array[i] = keys.get(i).getBytes();
+        }
+        try{
+            
+            List<byte[]> list = jedis.mget(array);
+            
+            List<float[]> ret = new ArrayList<>();
+            for (byte[] ba : list) {
+                ret.add(unserialize(ba));
+            }
+            return ret;
+        } catch(Exception e) {
+            return null;
+        } finally {
+            // jedisPool.returnResource(jedis);
+            // jedis.close();
         }
     }
 
@@ -67,5 +115,8 @@ public class JedisUtils{
             logger.error("fail to unserialize the vector: " + bytes);
         }
         return null;
+    }
+    public void close(){
+        jedisPool.returnResource(jedis);
     }
 }

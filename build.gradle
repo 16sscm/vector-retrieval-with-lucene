@@ -30,4 +30,5 @@ dependencies {
     implementation 'junit:junit:4.13.1'
     implementation "org.springframework.data:spring-data-redis:2.3.9.RELEASE"
     implementation "redis.clients:jedis:3.7.0"
+    implementation "org.springframework.boot:spring-boot-starter-actuator"
 }

@@ -10,24 +10,20 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Jedis;
 
-@Component
+
 public class JedisUtils{
     private static final Logger logger = LoggerFactory.getLogger(JedisUtils.class);
-    @Autowired
-    private JedisPool jedisPool;
+    // @Autowired
+    // private JedisPool jedisPool;
 
     Jedis jedis ;
-   
-    public void init(){
-        jedis = jedisPool.getResource();
+    public JedisUtils(){
+        jedis = new Jedis("10.100.10.19",9222,5000);
     }
+   
     public void set(String key, float[] array) {
         // Jedis jedis = jedisPool.getResource();
         try{
@@ -116,7 +112,10 @@ public class JedisUtils{
         }
         return null;
     }
+    public String debsize(){
+        return jedis.dbSize().toString();
+    }
     public void close(){
-        jedisPool.returnResource(jedis);
+        jedis.close();
     }
 }

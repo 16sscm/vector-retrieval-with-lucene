@@ -2,6 +2,7 @@ package com.hiretual.search.utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LatLonPoint;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.*;
@@ -33,8 +34,29 @@ public class QueryConvertor {
                                 continue;
                             } else if (termNode.has("user.tags.has_personal_email") && getFieldsCount(termNode) == 1) {
                                 continue;
+                            } else if (termNode.has("user.location.country.keyword") && getFieldsCount(termNode) == 1) {
+                                bq.add(new TermQuery(new Term("nation", termNode.get("user.location.country.keyword").get("value").asText())), BooleanClause.Occur.MUST);
                             } else {
                                 logger.info("unexpected term query:" + termNode.toString());
+                            }
+                        } else if (!node.isNull() && node.has("terms")) {
+                            JsonNode termNode = node.get("terms");
+                            if (termNode.isNull() || termNode.isEmpty()) {
+                                continue;
+                            } else if (termNode.has("user.tags.seniority") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                continue;
+                            } else {
+                                logger.info("unexpected terms query:" + termNode.toString());
+                            }
+                        } else if (!node.isNull() && node.has("exists")) {
+                            JsonNode termNode = node.get("exists");
+                            if (termNode.isNull() || termNode.isEmpty()) {
+                                continue;
+                            } else if (termNode.has("field") && termNode.get("field").asText().equals("user.info_tech") && getFieldsCount(termNode) == 2) {
+                                //TODO: info_tech need to be handled
+                                continue;
+                            } else {
+                                logger.info("unexpected terms query:" + termNode.toString());
                             }
                         } else if (!node.isNull() && node.has("bool")) {
                             JsonNode bNode = node.get("bool");
@@ -153,6 +175,94 @@ public class QueryConvertor {
                                         bq.add(termbq.build(), BooleanClause.Occur.MUST);
                                         c++;
                                     }
+                                    if (!bNode.get("should").findPath("user.education.education_level.keyword").isMissingNode()) {
+                                        JsonNode degrees = bNode.get("should");
+                                        if (degrees.size() > 2) {
+                                            logger.info("too many fields in degree json:" + degrees.toString());
+                                        }
+                                        BooleanQuery.Builder degreebq = new BooleanQuery.Builder();
+                                        for(JsonNode degree : degrees) {
+                                            JsonNode terms = degree.get("terms");
+                                            Iterator<String> tf = terms.fieldNames();
+                                            while (tf.hasNext()) {
+                                                String fieldName = tf.next();
+                                                if (fieldName.equals("user.education.education_level.keyword")) {
+                                                    JsonNode ds = terms.get("user.education.education_level.keyword");
+                                                    for (JsonNode d : ds) {
+                                                        degreebq.add(new TermQuery(new Term("degree", d.asText())), BooleanClause.Occur.SHOULD);
+                                                    }
+                                                } else if (fieldName.equals("user.tags.business_administration_level.keyword")) {
+                                                    continue;
+                                                } else if (fieldName.equals("boost")) {
+                                                    continue;
+                                                } else {
+                                                    logger.warn("sth unexpected!!! " + terms.toString());
+                                                }
+                                            }
+                                        }
+                                        bq.add(degreebq.build(), BooleanClause.Occur.MUST);
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.education.majors").isMissingNode()) {
+                                        JsonNode majors = bNode.get("should");
+                                        BooleanQuery.Builder majorbq = new BooleanQuery.Builder();
+                                        for(JsonNode major : majors) {
+                                            JsonNode terms = major.findPath("should");
+                                            if (terms.size() > 2) {
+                                                logger.info("too many fields in major json:" + terms.toString());
+                                            }
+                                            for (JsonNode maj : terms) {
+                                                if (!maj.findPath("user.education.majors").isMissingNode()) {
+                                                    //TODO: maybe not necessary
+                                                    majorbq.add(new PhraseQuery("compound", split2Array(maj.get("match_phrase").get("user.education.majors").get("query").asText())), BooleanClause.Occur.SHOULD);
+                                                } else if (!maj.findPath("user.education.degrees").isMissingNode()) {
+                                                    continue;
+                                                } else {
+                                                    logger.warn("sth unexpected!!! " + terms.toString());
+                                                }
+                                            }
+                                        }
+                                        bq.add(majorbq.build(), BooleanClause.Occur.MUST);
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.tags.gender").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.tags.race").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.tags.veteran").isMissingNode()) {
+                                        JsonNode diversities = bNode.get("should");
+                                        BooleanQuery.Builder diversitybq = new BooleanQuery.Builder();
+                                        for(JsonNode diversity : diversities) {
+                                            if (!diversity.findPath("user.tags.gender").isMissingNode()) {
+                                                if (diversity.findPath("user.tags.gender").get("value").asText().equals("female")) {
+                                                    diversitybq.add(IntPoint.newExactQuery("divWoman", 1), BooleanClause.Occur.SHOULD);
+                                                } else {
+                                                    logger.warn("sth strange!!!" + diversity.toString());
+                                                }
+                                            } else if (!diversity.findPath("user.tags.race").isMissingNode()) {
+                                                String race = diversity.findPath("user.tags.race").get("value").asText();
+                                                if (race.equals("african-american")) {
+                                                    diversitybq.add(IntPoint.newExactQuery("divBlack", 1), BooleanClause.Occur.SHOULD);
+                                                } else if (race.equals("hispanic")) {
+                                                    diversitybq.add(IntPoint.newExactQuery("divHispanic", 1), BooleanClause.Occur.SHOULD);
+                                                } else if (race.equals("native-american")) {
+                                                    diversitybq.add(IntPoint.newExactQuery("divNative", 1), BooleanClause.Occur.SHOULD);
+                                                } else if (race.equals("asian-american")) {
+                                                    diversitybq.add(IntPoint.newExactQuery("divAsian", 1), BooleanClause.Occur.SHOULD);
+                                                } else {
+                                                    logger.warn("sth strange!!!" + diversity.toString());
+                                                }
+                                            } else if (!diversity.findPath("user.tags.veteran").isMissingNode()) {
+                                                if (diversity.findPath("user.tags.veteran").get("value").asBoolean()) {
+                                                    diversitybq.add(IntPoint.newExactQuery("divVeteran", 1), BooleanClause.Occur.SHOULD);
+                                                } else {
+                                                    logger.warn("sth strange!!!" + diversity.toString());
+                                                }
+                                            } else {
+                                                logger.warn("unexpected diversity field!!!" + diversity.toString());
+                                            }
+                                        }
+                                        bq.add(diversitybq.build(), BooleanClause.Occur.MUST);
+                                        c++;
+                                    }
                                     if (c == 0) {
                                         logger.info("unexpected should filter:" + bNode.toString());
                                     } else if (c > 1) {
@@ -186,6 +296,20 @@ public class QueryConvertor {
                                         }
                                         c++;
                                     }
+                                    if (!bNode.get("must_not").findPath("user.current_experience.company_id").isMissingNode()) {
+                                        JsonNode currentCompanyIds = bNode.get("must_not");
+                                        int k = currentCompanyIds.size();
+                                        if (!currentCompanyIds.findPath("user.current_experience.company_id").isMissingNode()) {
+                                            for (JsonNode cic : currentCompanyIds.findPath("user.current_experience.company_id")) {
+                                                bq.add(new TermQuery(new Term("cic", cic.asText())), BooleanClause.Occur.MUST_NOT);
+                                            }
+                                            k --;
+                                        }
+                                        if (k != 0) {
+                                            logger.info("unexpected must not term match: " + currentCompanyIds.toString());
+                                        }
+                                        c++;
+                                    }
                                     if (c == 0) {
                                         logger.info("unexpected must_not filter:" + bNode.toString());
                                     } else if (c > 1) {
@@ -210,8 +334,43 @@ public class QueryConvertor {
                 } else {
                     logger.warn("strange filter node:" + filterNode.toString());
                 }
-            } else {
-                logger.warn("strange bool node:" + boolNode.toString());
+            }
+            if (!boolNode.isNull() && boolNode.has("should")) {
+                JsonNode filterNode = boolNode.get("should");
+                if (!filterNode.isNull() && !filterNode.isEmpty() && filterNode.isArray()) {
+                    for (JsonNode match : filterNode) {
+                        if (!match.findPath("user.title_skill_search").isMissingNode()) {
+                            bq.add(new PhraseQuery("cc", split2Array(match.get("match_phrase").get("user.title_skill_search").get("query").asText())), BooleanClause.Occur.SHOULD);
+                        } else if (!match.findPath("user.tags.has_contact").isMissingNode() || !match.findPath("user.tags.has_personal_email").isMissingNode()) {
+                            continue;
+                        } else {
+                            logger.warn("unknown should node: " + filterNode.toString());
+                        }
+                    }
+                }
+            }
+            if (!boolNode.isNull() && boolNode.has("must_not")) {
+                JsonNode mnNode = boolNode.get("must_not");
+                if (!mnNode.isNull() && !mnNode.isEmpty() && mnNode.isArray()) {
+                    for (JsonNode mn : mnNode) {
+                        if (!mn.findPath("user.tags.visa_sponsorship").isMissingNode()) {
+                            if (mn.get("term").get("user.tags.visa_sponsorship").get("value").asBoolean()) {
+                                bq.add(IntPoint.newExactQuery("needSponsorship", 1), BooleanClause.Occur.MUST_NOT);
+                            }
+                        } else if (!mn.findPath("user.tags.has_personal_email").isMissingNode()) {
+                            continue;
+                        } else {
+                            logger.warn("unknown must_not node: " + mn.toString());
+                        }
+                    }
+                }
+            }
+            Iterator<String> fn = boolNode.fieldNames();
+            while (fn.hasNext()) {
+                String n = fn.next();
+                if (!n.equals("filter") && !n.equals("must_not") && !n.equals("should") && !n.equals("adjust_pure_negative") && !n.equals("boost")) {
+                    logger.warn("unknown field in bool node: " + n);
+                }
             }
         } else {
             logger.warn("strange es query:" + esQuery.toString());

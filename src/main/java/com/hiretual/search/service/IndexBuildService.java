@@ -79,7 +79,7 @@ public class IndexBuildService {
     // otherwise you should  add the vector first,and remember to save
     int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 64, 8, pFlatFile, pIvfpqFile);
     if(suc==0){
-      logger.error("fail to initialize clib");
+      logger.error("fail to initialize clib,msg:"+clib.FilterKnn_GetErrorMsg());
     }
   }
 
@@ -234,7 +234,7 @@ public class IndexBuildService {
 
   public synchronized void mergeSegments() {
     try {
-      logger.info("OK ,i am going to merge,maybe it is horribly costly depends on index scale,please wait...");
+      logger.info("OK ,I am going to merge,maybe it is horribly costly depends on index scale,please wait...");
       writer.forceMerge(1);
       writer.commit();
       writer.close();
@@ -280,7 +280,7 @@ public class IndexBuildService {
       jedisUtils.close();
       int success=clib.FilterKnn_Save(pFlatFile, pIvfpqFile);
       if(success!=1){
-        logger.error("save jna call error " );
+        logger.error("jna :FilterKnn_Save call error,msg:"+clib.FilterKnn_GetErrorMsg() );
         
       }
       logger.info("vector index done!!! total " + docId +
@@ -365,7 +365,7 @@ public class IndexBuildService {
      t=System.currentTimeMillis();
     int success=clib.FilterKnn_AddVectors(vectors, id, size);
     if(success!=1){
-      logger.warn("add jna call error " );
+      logger.warn("jna:FilterKnn_AddVectors call error,msg: "+clib.FilterKnn_GetErrorMsg() );
     }
     logger.info("done!cost:"+(System.currentTimeMillis()-t));
     logger.info("add vector,size:"+size+",end docid:"+docIdStart+",cost:"+(System.currentTimeMillis()-s));

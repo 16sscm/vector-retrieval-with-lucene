@@ -91,7 +91,7 @@ public class SearchService {
             float[]resultDistances=new float[size];
             long resultNum=clib.FilterKnn_FlatSearch(queryWrapper.getKnnQuery().getQueryVector(), id, flatSearchScale,19, size, resultIds, resultDistances);
             if(resultNum<=0){
-                logger.warn("flat search error or got empty result");
+                logger.warn("flat search error or got empty result,msg:"+clib.FilterKnn_GetErrorMsg());
                 return null;
             }
             // KNNQueryResult[] results=new KNNQueryResult[(int)resultNum];

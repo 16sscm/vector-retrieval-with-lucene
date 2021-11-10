@@ -83,136 +83,86 @@ public class IndexBuildService {
         }
     }
 
+    private void addSetStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
+        if (values == null || values.size() == 0) {
+            return;
+        }
+        for (String value : values) {
+            if (StringUtils.isEmpty(value)) {
+                Field field = new StringField(fieldName, value, isStored);
+                doc.add(field);
+            }
+        }
+    }
+
+    private void addStringIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
+        if (StringUtils.isEmpty(value)) {
+            return;
+        }
+        Field field = new StringField(fieldName, value, isStored);
+        doc.add(field);
+    }
+
+    private void addTextIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
+        if (StringUtils.isEmpty(value)) {
+            return;
+        }
+        Field field = new TextField(fieldName, value, isStored);
+        doc.add(field);
+    }
+
+    private void addNumericIntoDoc(Document doc, String fieldName, int value) {
+        Field field = new NumericDocValuesField(fieldName, value);
+        doc.add(field);
+    }
+
+    private void addIntPointIntoDoc(Document doc, String fieldName, int value) {
+        Field field = new IntPoint(fieldName, value);
+        doc.add(field);
+    }
+
     public void addDocument(List<Resume> resumes) {
         int count = 0;
         for (Resume resume : resumes) {
             Document doc = new Document();
 
-            Field uidField = new StringField("uid", resume.getUid(), Field.Store.YES);
-            doc.add(uidField);
+            addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
 
-            Field hotField4Sort = new NumericDocValuesField(
-                    "score", resume.isHasPersonalEmail() ? resume.getAvailability() + 1000
-                    : resume.getAvailability());
-            doc.add(hotField4Sort);
+            addStringIntoDoc(doc, "degree", resume.getDegree(), Field.Store.NO);
 
-            if (!StringUtils.isEmpty(resume.getDegree())) {
-                Field degreeField =
-                        new StringField("degree", resume.getDegree(), Field.Store.NO);
-                doc.add(degreeField);
-            }
+            addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
 
-            if (!StringUtils.isEmpty(resume.getYoe())) {
-                Field yoeField =
-                        new StringField("yoe", resume.getYoe(), Field.Store.NO);
-                doc.add(yoeField);
-            }
+            addNumericIntoDoc(doc, "score", resume.isHasPersonalEmail() ? resume.getAvailability() + 1000 : resume.getAvailability());
 
-            if (!StringUtils.isEmpty(resume.getMonthsCurrentCompany())) {
-                Field mccField = new IntPoint("mcc", resume.getMonthsCurrentCompany());
-                doc.add(mccField);
-            }
+            addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
 
-            if (!StringUtils.isEmpty(resume.getMonthsCurrentRole())) {
-                Field mcrField = new IntPoint("mcr", resume.getMonthsCurrentRole());
-                doc.add(mcrField);
-            }
+            addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
 
-            Field divWomanField =
-                    new IntPoint("divWoman", resume.isDivWoman() ? 1 : 0);
-            doc.add(divWomanField);
+            addIntPointIntoDoc(doc, "divWoman", resume.isDivWoman() ? 1 : 0);
+            addIntPointIntoDoc(doc, "divBlack", resume.isDivBlack() ? 1 : 0);
+            addIntPointIntoDoc(doc, "divHispanic", resume.isDivHispanic() ? 1 : 0);
+            addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
+            addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
+            addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
+            addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
 
-            Field divBlackField =
-                    new IntPoint("divBlack", resume.isDivBlack() ? 1 : 0);
-            doc.add(divBlackField);
+            addStringIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
+            addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
+            addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
+            addStringIntoDoc(doc, "nation", resume.getLocNation(), Field.Store.NO);
+            addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
+            addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO);;
 
-            Field divHispanicField =
-                    new IntPoint("divHispanic", resume.isDivHispanic() ? 1 : 0);
-            doc.add(divHispanicField);
+            addSetStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
+            addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
+            addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
 
-            Field divVeteranField =
-                    new IntPoint("divVeteran", resume.isDivVeteran() ? 1 : 0);
-            doc.add(divVeteranField);
-
-            Field divNativeField =
-                    new IntPoint("divNative", resume.isDivNative() ? 1 : 0);
-            doc.add(divNativeField);
-
-            Field divAsianField =
-                    new IntPoint("divAsian", resume.isDivAsian() ? 1 : 0);
-            doc.add(divAsianField);
-
-            Field needSponsorshipField =
-                    new IntPoint("needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
-            doc.add(needSponsorshipField);
-
-            if (!StringUtils.isEmpty(resume.getCompanyCurrent())) {
-                Field ccField =
-                        new StringField("cc", resume.getCompanyCurrent(), Field.Store.NO);
-                doc.add(ccField);
-            }
-
-            if (!StringUtils.isEmpty(resume.getCompanyIdCurrent())) {
-                Field cicField = new StringField("cic", resume.getCompanyIdCurrent(),
-                        Field.Store.NO);
-                doc.add(cicField);
-            }
-
-            for (String companyPast : resume.getCompaniesPast()) {
-                Field cpField = new StringField("cp", companyPast, Field.Store.NO);
-                doc.add(cpField);
-            }
-
-            for (String companyIdPast : resume.getCompanyIdsPast()) {
-                Field cipField = new StringField("cip", companyIdPast, Field.Store.NO);
-                doc.add(cipField);
-            }
-
-            for (String industry : resume.getIndustries()) {
-                Field industryField =
-                        new StringField("industry", industry, Field.Store.NO);
-                doc.add(industryField);
-            }
-
-            if (!StringUtils.isEmpty(resume.getLocContinent())) {
-                Field continentField = new StringField(
-                        "continent", resume.getLocContinent(), Field.Store.NO);
-                doc.add(continentField);
-            }
-
-            if (!StringUtils.isEmpty(resume.getLocNation())) {
-                Field nationField =
-                        new StringField("nation", resume.getLocNation(), Field.Store.NO);
-                doc.add(nationField);
-            }
-
-            if (!StringUtils.isEmpty(resume.getLocState())) {
-                Field stateField =
-                        new StringField("state", resume.getLocState(), Field.Store.NO);
-                doc.add(stateField);
-            }
-
-            if (!StringUtils.isEmpty(resume.getLocCity())) {
-                Field cityField =
-                        new StringField("city", resume.getLocCity(), Field.Store.NO);
-                doc.add(cityField);
-            }
+            addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
+            addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
 
             Field distanceField =
                     new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
             doc.add(distanceField);
-
-            if (!StringUtils.isEmpty(resume.getLocRaw())) {
-                Field locField =
-                        new TextField("loc", resume.getLocRaw(), Field.Store.NO);
-                doc.add(locField);
-            }
-
-            if (!StringUtils.isEmpty(resume.getCompoundInfo())) {
-                Field compoundField =
-                        new TextField("compound", resume.getCompoundInfo(), Field.Store.NO);
-                doc.add(compoundField);
-            }
 
             count++;
             // uidEmbeddingMap.put(resume.getUid(), resume.getEmbedding());
@@ -228,7 +178,7 @@ public class IndexBuildService {
                 logger.error("fail to add document: " + resume.toString(), e);
             }*/
         }
-        logger.info("add finish,num:"+resumes.size());
+        //  logger.info("add finish,num:"+resumes.size());
         //  logger.info("total docs: " + uidEmbeddingMap.size());
     }
 
@@ -292,7 +242,6 @@ public class IndexBuildService {
     /**
      *
      * @param size
-     * @param docId
      * @return false if error occur
      * @throws IOException
      */

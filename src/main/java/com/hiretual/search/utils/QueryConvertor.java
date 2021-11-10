@@ -366,6 +366,8 @@ public class QueryConvertor {
                                     if (!bNode.get("must_not").findPath("user.user_id").isMissingNode()) {
                                         JsonNode uidArray = bNode.get("must_not").findPath("user.user_id");
                                         BooleanQuery.Builder excludeUidbq = new BooleanQuery.Builder();
+                                        MatchAllDocsQuery madq = new MatchAllDocsQuery();
+                                        excludeUidbq.add(madq, BooleanClause.Occur.MUST);
                                         for (JsonNode uid : uidArray) {
                                             excludeUidbq.add(new TermQuery(new Term("uid", uid.asText())), BooleanClause.Occur.MUST_NOT);
                                         }
@@ -375,6 +377,8 @@ public class QueryConvertor {
                                     if (!bNode.get("must_not").findPath("user.current_experience.companies").isMissingNode()) {
                                         JsonNode currentPositions = bNode.get("must_not");
                                         BooleanQuery.Builder excludeCompanybq = new BooleanQuery.Builder();
+                                        MatchAllDocsQuery madq = new MatchAllDocsQuery();
+                                        excludeCompanybq.add(madq, BooleanClause.Occur.MUST);
                                         int k = currentPositions.size();
                                         if (!currentPositions.findPath("user.current_experience.companies").isMissingNode()) {
 
@@ -396,6 +400,8 @@ public class QueryConvertor {
                                     if (!bNode.get("must_not").findPath("user.current_experience.company_id").isMissingNode()) {
                                         JsonNode currentCompanyIds = bNode.get("must_not");
                                         BooleanQuery.Builder excludeCompanyIdbq = new BooleanQuery.Builder();
+                                        MatchAllDocsQuery madq = new MatchAllDocsQuery();
+                                        excludeCompanyIdbq.add(madq, BooleanClause.Occur.MUST);
                                         int k = currentCompanyIds.size();
                                         if (!currentCompanyIds.findPath("user.current_experience.company_id").isMissingNode()) {
                                             for (JsonNode cic : currentCompanyIds.findPath("user.current_experience.company_id")) {

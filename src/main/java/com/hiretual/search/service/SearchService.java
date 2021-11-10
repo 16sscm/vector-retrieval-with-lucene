@@ -60,7 +60,7 @@ public class SearchService {
      * @return
      * @throws IOException
      */
-    public KNNResult[] search(BooleanQuery query, KNNQuery kq, int size) throws IOException {
+    public KNNResult[] search(List<Query> querys, KNNQuery kq, int size) throws IOException {
         long t1 = System.currentTimeMillis();
         int totalDocNum=indexReader.maxDoc();
         int numDocs=indexReader.numDocs();
@@ -68,14 +68,26 @@ public class SearchService {
           logger.warn("stop search,invalid document num for index,numDocs: "+numDocs+",maxDoc:"+totalDocNum);
           return null;
         }
-
+        Query query;
+        BooleanQuery.Builder builder = new BooleanQuery.Builder();
+        
+        for(Query q:querys){
+            logger.info(indexSearcher.count(q) +"|"+q.toString());
+            builder.add(q, BooleanClause.Occur.FILTER);
+        }
+        query=builder.build();
+        logger.info(query.toString());
         //detection
         
         int count=indexSearcher.count(query);
         long t2 = System.currentTimeMillis();
         //if filter result num less then threshold,call the jni bruteforce function with filtered ids and query
         //and the result can be return directly as final result
+        
         if (count < searchThreshold) {
+            if(count==0){
+                return null;
+            }
             TopDocs filterTopDocs = indexSearcher.search(query, count);//as much as possible
             long t3 = System.currentTimeMillis();
             ScoreDoc[]filterScoreDocs=filterTopDocs.scoreDocs;
@@ -103,8 +115,7 @@ public class SearchService {
         }
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
         //execute this query ，as a result ，we can got a result combine ann with lucene filter
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(query, BooleanClause.Occur.FILTER);
+       
         kq.setRation(totalDocNum/count);
         builder.add(kq, BooleanClause.Occur.MUST);
         query = builder.build();

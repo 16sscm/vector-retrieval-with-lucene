@@ -67,14 +67,12 @@ public class SearchController {
         long start = System.currentTimeMillis();
         JsonNode esQuery = QueryConvertor.postForEntityWithHeader(query.toString());
         logger.info(esQuery.toString());
-        BooleanQuery bq = QueryConvertor.convertESQuery(esQuery);
-        BooleanQuery.Builder bqb = new BooleanQuery.Builder();
-        BooleanQuery.Builder bqb1 = new BooleanQuery.Builder();
-        bqb1.add(new TermQuery(new Term("degree", "phd")), BooleanClause.Occur.SHOULD);
-        bqb1.add(new TermQuery(new Term("degree", "ms")), BooleanClause.Occur.SHOULD);
-        BooleanQuery bq1=bqb1.build();
-        bqb.add(bq1, BooleanClause.Occur.FILTER);
-        bq = bqb.build();
+        List<Query> queries = QueryConvertor.convertESQuery(esQuery);
+        if(queries==null){
+            return null;
+        }
+       
+       
         int k = 1000;
         double[] vec = new double[]{
             0.40318623185157776,
@@ -212,13 +210,16 @@ public class SearchController {
         KNNQuery kq = new KNNQuery("test_vec", v, k, "test_index");
         //TODO: to be implemented
         try {
-            KNNResult[] result = searchService.search(bq1, kq, k);
+            KNNResult[] result = searchService.search(queries, kq, k);
+            if(result==null){
+                return "";
+            }
             logger.info(result.length + "");
         } catch(Exception e) {
-            logger.error("", e);
+            logger.error("search error", e);
         }
         long end = System.currentTimeMillis();
         logger.info("cost: " + (end - start) + "ms");
-        return null;
+        return "done";
     }
 }

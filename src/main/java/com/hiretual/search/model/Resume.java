@@ -1,8 +1,10 @@
 package com.hiretual.search.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.hiretual.search.constants.ResumeField;
 import com.hiretual.search.service.IndexBuildService;
 import com.hiretual.search.utils.DateUtils;
+import com.hiretual.search.utils.JsonResumeParseUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
@@ -113,118 +115,82 @@ public class Resume {
             String highlight = "";
             StringBuilder skillInfo = new StringBuilder();
             StringBuilder itInfo = new StringBuilder();
-            if (jsonNode.has("basic") && jsonNode.has("analytics")) {
-                JsonNode basic = jsonNode.get("basic");
-                if (basic.has("user_id")) {
-                    this.uid = basic.get("user_id").asText();
-                }
-                if (basic.has("highlight")) {
-                    highlight = basic.get("highlight").isNull() ? "" : basic.get("highlight").asText();
-                }
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.BASIC) && !JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.ANALYTICS)) {
+                JsonNode basic = jsonNode.get(ResumeField.BASIC);
+                JsonNode analytics = jsonNode.get(ResumeField.ANALYTICS);
+
+                this.uid = JsonResumeParseUtils.getStringFieldFromJsonNode(basic, ResumeField.UID);
+
+                highlight = JsonResumeParseUtils.getStringFieldFromJsonNode(basic, ResumeField.HIGHLIGHT, "");
 
                 this.hasPersonalEmail = true; //TODO: no data support
                 this.needSponsorship = false; //TODO: no data support
-                JsonNode analytics = jsonNode.get("analytics");
-                if (analytics.has("availability")) {
-                    this.availability = analytics.get("availability").isNull() ? 0 : analytics.get("availability").asInt();
+
+                this.availability = JsonResumeParseUtils.getIntFieldFromJsonNode(analytics, ResumeField.AVAILABILITY);
+
+                this.divWoman = ResumeField.FEMALE.equals(JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.GENDER, ""));
+
+                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.RACE)) {
+                    String race = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.RACE, "");
+                    this.divHispanic = race.contains(ResumeField.HISPANIC);
+                    this.divAsian = race.contains(ResumeField.ASIAN);
+                    this.divBlack = race.contains(ResumeField.BLACK) || race.contains(ResumeField.AFRICAN);
+                    this.divNative = race.contains(ResumeField.NATIVE);
                 }
-                if (analytics.has("gender")) {
-                    this.divWoman = "female".equals(analytics.get("gender").asText());
-                } else {
-                    this.divWoman = false;
-                }
-                if (analytics.has("race")) {
-                    String race = analytics.get("race").asText();
-                    if (race.indexOf("hispanic") > -1) {
-                        this.divHispanic = true;
-                    } else {
-                        this.divHispanic = false;
-                    }
-                    if (race.indexOf("asian") > -1) {
-                        this.divAsian = true;
-                    } else {
-                        this.divAsian = false;
-                    }
-                    if (race.indexOf("african") > -1 || race.indexOf("black") > -1) {
-                        this.divBlack = true;
-                    } else {
-                        this.divBlack = false;
-                    }
-                    if (race.indexOf("native") > -1) {
-                        this.divNative = true;
-                    } else {
-                        this.divNative = false;
-                    }
-                }
-                if (analytics.has("veteran")) {
-                    this.divVeteran = analytics.get("veteran").asBoolean();
-                } else {
-                    this.divVeteran = false;
-                }
-                if (analytics.has("education")) {
-                    this.degree = analytics.get("education").asText();
-                }
-                if (analytics.has("experience")) {
-                    this.yoe = analytics.get("experience").isNull() ? null : analytics.get("experience").asText();
-                }
-                if (analytics.has("skill")) {
-                    for (JsonNode skill : analytics.get("skill")) {
+
+                this.divVeteran = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.VETERAN);
+                this.degree = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EDUCATION);
+                this.yoe = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EXPERIENCE);
+
+                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.SKILL)) {
+                    JsonNode skills = analytics.get(ResumeField.SKILL);
+                    for (JsonNode skill : skills) {
                         skillInfo.append(skill.asText()).append(',');
                     }
                 }
-                if (analytics.has("industry")) {
+
+                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.INDUSTRY)) {
                     this.industries = new HashSet<>();
-                    for (JsonNode industry : analytics.get("industry")) {
+                    JsonNode industries = analytics.get(ResumeField.INDUSTRY);
+                    for (JsonNode industry : industries) {
                         this.industries.add(industry.asText());
                     }
                 }
-                if (analytics.has("norm_location")) {
-                    JsonNode loc = analytics.get("norm_location");
+
+                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.NORM_LOCATION)) {
+                    JsonNode loc = analytics.get(ResumeField.NORM_LOCATION);
                     if (!loc.isEmpty()) {
-                        if (loc.has("location_fmt")) {
-                            this.locRaw = loc.get("location_fmt").isNull() ? "" : loc.get("location_fmt").asText();
-                        }
-                        if (loc.has("continent")) {
-                            this.locContinent = loc.get("continent").isNull() ? "" : loc.get("continent").asText();
-                        }
-                        if (loc.has("country")) {
-                            this.locNation = loc.get("country").isNull() ? "" : loc.get("country").asText();
-                        }
-                        if (loc.has("state")) {
-                            this.locState = loc.get("state").isNull() ? "" : loc.get("state").asText();
-                        }
-                        if (loc.has("city")) {
-                            this.locCity = loc.get("city").isNull() ? "" : loc.get("city").asText();
-                        }
-                        if (loc.has("latitude")) {
-                            this.locLat = loc.get("latitude").isNull() ? 0 : loc.get("latitude").asDouble();
-                        }
-                        if (loc.has("longitude")) {
-                            this.locLon = loc.get("longitude").isNull() ? 0 : loc.get("longitude").asDouble();
-                        }
+                        this.locRaw = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.LOCATION_FMT, "");
+                        this.locContinent = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.CONTINENT, "");
+                        this.locNation = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.COUNTRY, "");
+                        this.locState = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.STATE, "");
+                        this.locCity = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.CITY, "");
+                        this.locLat = JsonResumeParseUtils.getIntFieldFromJsonNode(loc, ResumeField.LATITUDE);
+                        this.locLon = JsonResumeParseUtils.getIntFieldFromJsonNode(loc, ResumeField.LONGITUDE);
                     }
                 }
-                if (analytics.has("it_analytics")) {
-                    JsonNode it = analytics.get("it_analytics");
-                    if (it.has("languages")) {
-                        for (JsonNode language : it.get("languages")) {
+
+                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.IT_ANALYTICS)) {
+                    JsonNode it = analytics.get(ResumeField.IT_ANALYTICS);
+                    if (JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.LANGUAGE)) {
+                        for (JsonNode language : it.get(ResumeField.LANGUAGE)) {
                             itInfo.append(language.asText()).append(',');
                         }
                     }
-                    if (it.has("expertise_scores")) {
-                        Iterator<String> keys = it.get("expertise_scores").fieldNames();
+                    if (JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.EXPERTISE_SCORES)) {
+                        Iterator<String> keys = it.get(ResumeField.EXPERTISE_SCORES).fieldNames();
                         while (keys.hasNext()) {
                             itInfo.append(keys.next()).append(',');
                         }
                     }
-                    if (it.has("details")) {
-                        JsonNode details = it.get("details");
-                        if (details.has("github")) {
-                            JsonNode github = details.get("github");
-                            if (github.has("selected_repo")) {
-                                for (JsonNode repo : github.get("selected_repo")) {
-                                    if (repo.has("expertise")) {
-                                        Iterator<String> expertises = repo.get("expertise").fieldNames();
+                    if (JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.DETAILS)) {
+                        JsonNode details = it.get(ResumeField.DETAILS);
+                        if (JsonResumeParseUtils.isJsonNodeNull(details, ResumeField.GITHUB)) {
+                            JsonNode github = details.get(ResumeField.GITHUB);
+                            if (JsonResumeParseUtils.isJsonNodeNull(github, ResumeField.SELECTED_REPO)) {
+                                for (JsonNode repo : github.get(ResumeField.SELECTED_REPO)) {
+                                    if (JsonResumeParseUtils.isJsonNodeNull(repo, ResumeField.EXPERTISE)) {
+                                        Iterator<String> expertises = repo.get(ResumeField.EXPERTISE).fieldNames();
                                         while (expertises.hasNext()) {
                                             itInfo.append(expertises.next()).append(',');
                                         }
@@ -237,8 +203,8 @@ public class Resume {
             }
 
             StringBuilder educationInfo = new StringBuilder();
-            if (jsonNode.has("education")) {
-                for (JsonNode education : jsonNode.get("education")) {
+            if (JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.EDUCATION)) {
+                for (JsonNode education : jsonNode.get(ResumeField.EDUCATION)) {
                     // //TODO: dedup work may be needed
                     educationInfo.append(education.get("education_school").asText()).append(',')
                             .append(education.get("education_major").asText()).append(',')

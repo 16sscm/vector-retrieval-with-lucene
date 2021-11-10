@@ -25,24 +25,22 @@ public class JedisUtils{
     }
    
     public void set(String key, float[] array) {
-        // Jedis jedis = jedisPool.getResource();
+       
         try{
             jedis.set(key.getBytes(), serialize(array));
         } finally {
-            // jedisPool.returnResource(jedis);
-            // jedis.close();
+          
         }
     }
 
     public float[] get(String key) {
-        // Jedis jedis = jedisPool.getResource();
+     
         try{
             return unserialize(jedis.get(key.getBytes()));
         } catch(Exception e) {
             return null;
         } finally {
-            // jedisPool.returnResource(jedis);
-            // jedis.close();
+          
         }
     }
     public List<float[]>pipeline(List<String> keys){
@@ -58,12 +56,12 @@ public class JedisUtils{
             byte[] bytes=(byte[])o;
             ret.add(unserialize(bytes));
         }
-        // jedis.close();
+
         return ret;
     }
     public List<float[]> mget(List<String> keys) {
         
-        // Jedis jedis = jedisPool.getResource();
+      
         byte[][] array = new byte[keys.size()][];
         for (int i = 0; i < keys.size(); i++){
             
@@ -81,8 +79,7 @@ public class JedisUtils{
         } catch(Exception e) {
             return null;
         } finally {
-            // jedisPool.returnResource(jedis);
-            // jedis.close();
+           
         }
     }
 

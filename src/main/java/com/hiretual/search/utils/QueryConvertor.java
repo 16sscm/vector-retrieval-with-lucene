@@ -142,7 +142,6 @@ public class QueryConvertor {
                                                 String locValue = loc.get("match_phrase").get("user.location.location_value").get("query").asText().toLowerCase();
                                                 if (!locValueSet.contains(locValue)) {
                                                     lbq.add(new PhraseQuery("compound", split2Array(locValue)), BooleanClause.Occur.SHOULD);
-                                                    ret.add(new PhraseQuery("compound", split2Array(locValue)));
                                                     locValueSet.add(locValue);
                                                 }
 
@@ -191,7 +190,6 @@ public class QueryConvertor {
                                                 }
                                                 if (!locObjectSet.contains(lsb.toString())) {
                                                     lbq.add(lmbq.build(), BooleanClause.Occur.SHOULD);
-                                                    ret.add(lmbq.build());
                                                     locObjectSet.add(lsb.toString());
                                                 }
                                             } else {

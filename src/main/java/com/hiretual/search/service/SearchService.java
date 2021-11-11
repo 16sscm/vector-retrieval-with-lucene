@@ -6,6 +6,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 // import org.apache.lucene.analysis.Analyzer;
@@ -45,7 +46,7 @@ public class SearchService {
         }
         try {
             logger.info(USER_HOME);
-            indexReader=DirectoryReader.open(FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+            indexReader=DirectoryReader.open(MMapDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
             indexSearcher = new IndexSearcher(indexReader);
         } catch (IOException e) {
             logger.warn("fail to initialize index searcher");
@@ -59,28 +60,36 @@ public class SearchService {
      * @return
      * @throws IOException
      */
-    public KNNResult[] search(FakeQueryWrapper queryWrapper, int size) throws IOException {
-
+    public KNNResult[] search(List<Query> querys, KNNQuery kq, int size) throws IOException {
+        long t1 = System.currentTimeMillis();
         int totalDocNum=indexReader.maxDoc();
         int numDocs=indexReader.numDocs();
         if(totalDocNum!=numDocs){
           logger.warn("stop search,invalid document num for index,numDocs: "+numDocs+",maxDoc:"+totalDocNum);
           return null;
         }
+        Query query;
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        List<Query> filterQuerys = queryWrapper.getFilterQuerys();
-        for (int i = 0; i < filterQuerys.size(); i++) {
-            builder.add(filterQuerys.get(i), BooleanClause.Occur.FILTER);
+        
+        for(Query q:querys){
+            logger.info(indexSearcher.count(q) +"|"+q.toString());
+            builder.add(q, BooleanClause.Occur.FILTER);
         }
-        Query query = builder.build();
+        query=builder.build();
+        logger.info(query.toString());
         //detection
         
         int count=indexSearcher.count(query);
-      
+        long t2 = System.currentTimeMillis();
         //if filter result num less then threshold,call the jni bruteforce function with filtered ids and query
         //and the result can be return directly as final result
+        
         if (count < searchThreshold) {
+            if(count==0){
+                return null;
+            }
             TopDocs filterTopDocs = indexSearcher.search(query, count);//as much as possible
+            long t3 = System.currentTimeMillis();
             ScoreDoc[]filterScoreDocs=filterTopDocs.scoreDocs;
             int flatSearchScale=filterScoreDocs.length;
             long []id=new long[flatSearchScale];
@@ -89,9 +98,11 @@ public class SearchService {
             }
             long[]resultIds=new long[size];
             float[]resultDistances=new float[size];
-            long resultNum=clib.FilterKnn_FlatSearch(queryWrapper.getKnnQuery().getQueryVector(), id, flatSearchScale,19, size, resultIds, resultDistances);
+            long t4 = System.currentTimeMillis();
+            long resultNum=clib.FilterKnn_FlatSearch(kq.getQueryVector(), id, flatSearchScale,0, size, resultIds, resultDistances);
+            long t5 = System.currentTimeMillis();
             if(resultNum<=0){
-                logger.warn("flat search error or got empty result");
+                logger.warn("flat search error or got empty result,msg:"+clib.FilterKnn_GetErrorMsg());
                 return null;
             }
             // KNNQueryResult[] results=new KNNQueryResult[(int)resultNum];
@@ -99,13 +110,14 @@ public class SearchService {
             //     KNNQueryResult knnQueryResult=new KNNQueryResult((int)resultIds[i], KNNWeight.normalizeScore( resultDistances[i]));
             //     results[i]=knnQueryResult;
             // }
+            logger.info("" + (t2-t1) +"|"+ (t3-t2) +"|"+ (t4-t3) +"|"+ (t5-t4));
             return convertFlatResult2KNNResult(resultNum,resultIds,resultDistances);
         }
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
         //execute this query ，as a result ，we can got a result combine ann with lucene filter
-        KNNQuery knnQuery=queryWrapper.getKnnQuery();
-        knnQuery.setRation(totalDocNum/count);
-        builder.add(knnQuery, BooleanClause.Occur.MUST);
+       
+        kq.setRation(totalDocNum/count);
+        builder.add(kq, BooleanClause.Occur.MUST);
         query = builder.build();
         ScoreDoc[] hits = indexSearcher.search(query, size).scoreDocs;
         // KNNQueryResult[] results = Utils.transformScoreDocToKNNQueryResult(hits);

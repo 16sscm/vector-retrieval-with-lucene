@@ -29,16 +29,26 @@ import java.io.IOException;
  */
 public class KNNQuery extends Query {
 
-    private final String field;
+    
     private final float[] queryVector;
-    private final int k;
-    private final String indexName;
+    private  int k;
+    private int clusterAverageVector;
     private  float ration;
-    public KNNQuery(String field, float[] queryVector, int k, String indexName) {
-        this.field = field;
+    public KNNQuery( float[] queryVector) {
+       
         this.queryVector = queryVector;
-        this.k = k;
-        this.indexName = indexName;
+        
+       
+    }
+    public void setK(int k){
+        this.k=k;
+    }
+    
+    public void setClusterAverageVector(int clusterAverageVector){
+        this.clusterAverageVector=clusterAverageVector;
+    }
+    public int getClusterAverageVector(){
+        return this.clusterAverageVector;
     }
     public void setRation(float ration){
         this.ration=ration;
@@ -46,9 +56,7 @@ public class KNNQuery extends Query {
     public float getRation(){
         return this.ration;
     }
-    public String getField() {
-        return this.field;
-    }
+    
 
     public float[] getQueryVector() {
         return this.queryVector;
@@ -58,7 +66,7 @@ public class KNNQuery extends Query {
         return this.k;
     }
 
-    public String getIndexName() { return this.indexName; }
+    
 
     /**
      * Constructs Weight implementation for this query
@@ -84,7 +92,7 @@ public class KNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return field.hashCode() ^ queryVector.hashCode() ^ k;
+        return  queryVector.hashCode() ^ k;
     }
 
     @Override
@@ -94,6 +102,6 @@ public class KNNQuery extends Query {
     }
 
     private boolean equalsTo(KNNQuery other) {
-        return this.field.equals(other.getField()) && this.queryVector.equals(other.getQueryVector()) && this.k == other.getK();
+        return this.queryVector.equals(other.getQueryVector()) && this.k == other.getK();
     }
 };

@@ -138,11 +138,14 @@ public class QueryConvertor {
                                         Set<String> locObjectSet = new HashSet<>();
                                         for (JsonNode loc : locs) {
                                             if (!loc.findPath("user.location.location_value").isMissingNode()) {
+
                                                 String locValue = loc.get("match_phrase").get("user.location.location_value").get("query").asText().toLowerCase();
                                                 if (!locValueSet.contains(locValue)) {
                                                     lbq.add(new PhraseQuery("compound", split2Array(locValue)), BooleanClause.Occur.SHOULD);
+                                                    ret.add(new PhraseQuery("compound", split2Array(locValue)));
                                                     locValueSet.add(locValue);
                                                 }
+
                                             } else if (loc.has("bool")) {
                                                 JsonNode lboolNode = loc.get("bool");
                                                 BooleanQuery.Builder lmbq = new BooleanQuery.Builder();
@@ -151,19 +154,19 @@ public class QueryConvertor {
                                                     for (JsonNode must : lboolNode.get("must")) {
                                                         if (!must.findPath("user.location.continent.keyword").isMissingNode()) {
                                                             String conti = must.get("term").get("user.location.continent.keyword").get("value").asText();
-                                                            lsb.append('+').append(conti.toLowerCase());
+                                                            lsb.append('+').append(conti);
                                                             lmbq.add(new TermQuery(new Term("continent", conti.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.country.keyword").isMissingNode()) {
                                                             String country = must.get("term").get("user.location.country.keyword").get("value").asText();
-                                                            lsb.append('+').append(country.toLowerCase());
+                                                            lsb.append('+').append(country);
                                                             lmbq.add(new TermQuery(new Term("nation", country.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.state.keyword").isMissingNode()) {
                                                             String state = must.get("term").get("user.location.state.keyword").get("value").asText();
-                                                            lsb.append('+').append(state.toLowerCase());
+                                                            lsb.append('+').append(state);
                                                             lmbq.add(new TermQuery(new Term("state", state.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.city.keyword").isMissingNode()) {
                                                             String city = must.get("term").get("user.location.city.keyword").get("value").asText();
-                                                            lsb.append('+').append(city.toLowerCase());
+                                                            lsb.append('+').append(city);
                                                             lmbq.add(new TermQuery(new Term("city", city.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.geo_coordinates").isMissingNode()) {
                                                             JsonNode latlon = must.get("geo_distance").get("user.location.geo_coordinates");
@@ -188,6 +191,7 @@ public class QueryConvertor {
                                                 }
                                                 if (!locObjectSet.contains(lsb.toString())) {
                                                     lbq.add(lmbq.build(), BooleanClause.Occur.SHOULD);
+                                                    ret.add(lmbq.build());
                                                     locObjectSet.add(lsb.toString());
                                                 }
                                             } else {
@@ -200,6 +204,7 @@ public class QueryConvertor {
                                     if (!bNode.get("should").findPath("user.current_experience.normed_titles").isMissingNode() ||
                                                !bNode.get("should").findPath("user.past_experience.titles").isMissingNode() ||
                                                !bNode.get("should").findPath("user.past_experience.normed_titles").isMissingNode()) {
+
 //                                        JsonNode titles = bNode.get("should");
 //                                        BooleanQuery.Builder tbq = new BooleanQuery.Builder();
 //                                        for(JsonNode title : titles) {
@@ -218,6 +223,7 @@ public class QueryConvertor {
 //                                            }
 //                                        }
 //                                        ret.add(tbq.build());
+
                                         c++;
                                     }
                                     if (!bNode.get("should").findPath("user.tags.experience_tag").isMissingNode()) {
@@ -448,6 +454,7 @@ public class QueryConvertor {
                 } else {
                     logger.warn("strange filter node:" + filterNode.toString());
                 }
+
             }
             if (!boolNode.isNull() && boolNode.has("should")) {
                 JsonNode filterNode = boolNode.get("should");
@@ -455,8 +462,10 @@ public class QueryConvertor {
                 if (!filterNode.isNull() && !filterNode.isEmpty() && filterNode.isArray()) {
                     for (JsonNode match : filterNode) {
                         if (!match.findPath("user.title_skill_search").isMissingNode()) {
+
                             //TODO: handle boost later
 //                            tsbq.add(new PhraseQuery("cc", split2Array(match.get("match_phrase").get("user.title_skill_search").get("query").asText())), BooleanClause.Occur.SHOULD);
+
                         } else if (!match.findPath("user.tags.has_contact").isMissingNode() || !match.findPath("user.tags.has_personal_email").isMissingNode()) {
                         } else {
                             logger.warn("unknown should node: " + filterNode.toString());
@@ -487,6 +496,7 @@ public class QueryConvertor {
                 if (!n.equals("filter") && !n.equals("must_not") && !n.equals("should") && !n.equals("adjust_pure_negative") && !n.equals("boost")) {
                     logger.warn("unknown field in bool node: " + n);
                 }
+
             }
         } else {
             logger.warn("strange es query:" + esQuery.toString());

@@ -74,11 +74,14 @@ public class KNNWeight extends Weight {
 
         int topK=(int)(knnQuery.getK()*knnQuery.getRation());
         // final KNNQueryResult[] results=new KNNQueryResult[topK];
+        long numSearchVector=10*topK;
+        long numSearchCluster=(long) Math.ceil((double)numSearchVector/knnQuery.getClusterAverageVector()) ;
+       
         long []resultIds=new long[topK];
         float[]resultDistances=new float[topK];
-        long resultNum=CLib.INSTANCE.FilterKnn_IvfpqSearch(knnQuery.getQueryVector(), 10,100000,19, topK, resultIds, resultDistances);
+        long resultNum=CLib.INSTANCE.FilterKnn_IvfpqSearch(knnQuery.getQueryVector(), numSearchCluster,numSearchVector,2,0, topK, resultIds, resultDistances);
         if(resultNum==0){
-            logger.warn("ivfpq search error or got empty result");
+            logger.warn("ivfpq search error or got empty result,msg:"+CLib.INSTANCE.FilterKnn_GetErrorMsg());
             return null;
         }
         /**

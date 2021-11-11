@@ -25,6 +25,10 @@ public class QueryConvertor {
 
     public static List<Query> convertESQuery(JsonNode esQuery) {
         List<Query> ret = new ArrayList<>();
+        BooleanQuery.Builder excludebq = new BooleanQuery.Builder();
+        MatchAllDocsQuery madq = new MatchAllDocsQuery();
+        excludebq.add(madq, BooleanClause.Occur.SHOULD);
+        int excludeCount = 0;
 
         if (esQuery != null && !esQuery.isNull() && esQuery.has("bool")) {
             JsonNode boolNode = esQuery.get("bool");
@@ -94,7 +98,7 @@ public class QueryConvertor {
                                 } else {
                                     qp.setDefaultOperator(QueryParser.OR_OPERATOR);
                                 }
-                                String qs = termNode.get("query").asText().replaceAll("AND", "");
+                                String qs = termNode.get("query").asText();
                                 try {
                                     Query qsq = qp.parse(qs);
                                     ret.add(qsq);
@@ -176,7 +180,7 @@ public class QueryConvertor {
                                                             String locType = mustnot.get("term").get("user.location.type.keyword").get("value").asText();
                                                             lsb.append("-type:").append(locType);
                                                             //TODO: change continent to location type
-                                                            lmbq.add(new TermQuery(new Term("continent", locType)), BooleanClause.Occur.MUST_NOT);
+//                                                            lmbq.add(new TermQuery(new Term("continent", locType)), BooleanClause.Occur.MUST_NOT);
                                                         } else {
                                                             logger.warn("unexpected geo field: " + mustnot.toString());
                                                         }
@@ -361,46 +365,43 @@ public class QueryConvertor {
                                     int c = 0;
                                     if (!bNode.get("must_not").findPath("user.user_id").isMissingNode()) {
                                         JsonNode uidArray = bNode.get("must_not").findPath("user.user_id");
-                                        BooleanQuery.Builder excludeUidbq = new BooleanQuery.Builder();
                                         for (JsonNode uid : uidArray) {
-                                            excludeUidbq.add(new TermQuery(new Term("uid", uid.asText())), BooleanClause.Occur.MUST_NOT);
+                                            excludebq.add(new TermQuery(new Term("uid", uid.asText())), BooleanClause.Occur.MUST_NOT);
+                                            excludeCount++;
                                         }
-                                        ret.add(excludeUidbq.build());
                                         c++;
                                     }
                                     if (!bNode.get("must_not").findPath("user.current_experience.companies").isMissingNode()) {
                                         JsonNode currentPositions = bNode.get("must_not");
-                                        BooleanQuery.Builder excludeCompanybq = new BooleanQuery.Builder();
                                         int k = currentPositions.size();
                                         if (!currentPositions.findPath("user.current_experience.companies").isMissingNode()) {
-                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(currentPositions.findPath("user.current_experience.companies").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+                                            excludebq.add(new PhraseQuery("compound", split2Array(currentPositions.findPath("user.current_experience.companies").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+                                            excludeCount++;
                                             k --;
                                         }
                                         //TODO: correct field name - current titles
                                         if (!currentPositions.findPath("user.current_experience.titles").isMissingNode()) {
-                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(currentPositions.findPath("user.current_experience.titles").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+//                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(currentPositions.findPath("user.current_experience.titles").get("query").asText())), BooleanClause.Occur.MUST_NOT);
                                             k--;
                                         }
                                         if (k != 0) {
                                             logger.info("unexpected must not phrase match: " + currentPositions.toString());
                                         }
-                                        ret.add(excludeCompanybq.build());
                                         c++;
                                     }
                                     if (!bNode.get("must_not").findPath("user.current_experience.company_id").isMissingNode()) {
                                         JsonNode currentCompanyIds = bNode.get("must_not");
-                                        BooleanQuery.Builder excludeCompanyIdbq = new BooleanQuery.Builder();
                                         int k = currentCompanyIds.size();
                                         if (!currentCompanyIds.findPath("user.current_experience.company_id").isMissingNode()) {
                                             for (JsonNode cic : currentCompanyIds.findPath("user.current_experience.company_id")) {
-                                                excludeCompanyIdbq.add(new TermQuery(new Term("cic", cic.asText())), BooleanClause.Occur.MUST_NOT);
+                                                excludebq.add(new TermQuery(new Term("cic", cic.asText())), BooleanClause.Occur.MUST_NOT);
+                                                excludeCount++;
                                             }
                                             k --;
                                         }
                                         if (k != 0) {
                                             logger.info("unexpected must not term match: " + currentCompanyIds.toString());
                                         }
-                                        ret.add(excludeCompanyIdbq.build());
                                         c++;
                                     }
                                     if (!bNode.get("must_not").findPath("user.education.schools").isMissingNode()) {
@@ -466,11 +467,11 @@ public class QueryConvertor {
             if (!boolNode.isNull() && boolNode.has("must_not")) {
                 JsonNode mnNode = boolNode.get("must_not");
                 if (!mnNode.isNull() && !mnNode.isEmpty() && mnNode.isArray()) {
-                    BooleanQuery.Builder mnbq = new BooleanQuery.Builder();
                     for (JsonNode mn : mnNode) {
                         if (!mn.findPath("user.tags.visa_sponsorship").isMissingNode()) {
                             if (mn.get("term").get("user.tags.visa_sponsorship").get("value").asBoolean()) {
-                                mnbq.add(IntPoint.newExactQuery("needSponsorship", 1), BooleanClause.Occur.MUST_NOT);
+                                excludebq.add(IntPoint.newExactQuery("needSponsorship", 1), BooleanClause.Occur.MUST_NOT);
+                                excludeCount++;
                             }
                         } else if (!mn.findPath("user.tags.has_personal_email").isMissingNode()) {
                             continue;
@@ -478,7 +479,6 @@ public class QueryConvertor {
                             logger.warn("unknown must_not node: " + mn.toString());
                         }
                     }
-                    ret.add(mnbq.build());
                 }
             }
             Iterator<String> fn = boolNode.fieldNames();
@@ -490,6 +490,10 @@ public class QueryConvertor {
             }
         } else {
             logger.warn("strange es query:" + esQuery.toString());
+        }
+
+        if(excludeCount > 0) {
+            ret.add(excludebq.build());
         }
 
         return ret;

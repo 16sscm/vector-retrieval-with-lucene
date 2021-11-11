@@ -138,6 +138,7 @@ public class QueryConvertor {
                                                 String locValue = loc.get("match_phrase").get("user.location.location_value").get("query").asText().toLowerCase();
                                                 if (!locValueSet.contains(locValue)) {
                                                     lbq.add(new PhraseQuery("compound", split2Array(locValue)), BooleanClause.Occur.SHOULD);
+                                                    ret.add(new PhraseQuery("compound", split2Array(locValue)));
                                                     locValueSet.add(locValue);
                                                 }
 
@@ -149,19 +150,19 @@ public class QueryConvertor {
                                                     for (JsonNode must : lboolNode.get("must")) {
                                                         if (!must.findPath("user.location.continent.keyword").isMissingNode()) {
                                                             String conti = must.get("term").get("user.location.continent.keyword").get("value").asText();
-                                                            lsb.append('+').append(conti.toLowerCase());
+                                                            lsb.append('+').append(conti);
                                                             lmbq.add(new TermQuery(new Term("continent", conti.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.country.keyword").isMissingNode()) {
                                                             String country = must.get("term").get("user.location.country.keyword").get("value").asText();
-                                                            lsb.append('+').append(country.toLowerCase());
+                                                            lsb.append('+').append(country);
                                                             lmbq.add(new TermQuery(new Term("nation", country.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.state.keyword").isMissingNode()) {
                                                             String state = must.get("term").get("user.location.state.keyword").get("value").asText();
-                                                            lsb.append('+').append(state.toLowerCase());
+                                                            lsb.append('+').append(state);
                                                             lmbq.add(new TermQuery(new Term("state", state.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.city.keyword").isMissingNode()) {
                                                             String city = must.get("term").get("user.location.city.keyword").get("value").asText();
-                                                            lsb.append('+').append(city.toLowerCase());
+                                                            lsb.append('+').append(city);
                                                             lmbq.add(new TermQuery(new Term("city", city.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.geo_coordinates").isMissingNode()) {
                                                             JsonNode latlon = must.get("geo_distance").get("user.location.geo_coordinates");
@@ -178,7 +179,7 @@ public class QueryConvertor {
                                                             String locType = mustnot.get("term").get("user.location.type.keyword").get("value").asText();
                                                             lsb.append("-type:").append(locType);
                                                             //TODO: change continent to location type
-                                                            lmbq.add(new TermQuery(new Term("continent", locType)), BooleanClause.Occur.MUST_NOT);
+                                                            // lmbq.add(new TermQuery(new Term("continent", locType)), BooleanClause.Occur.MUST_NOT);
                                                         } else {
                                                             logger.warn("unexpected geo field: " + mustnot.toString());
                                                         }
@@ -186,6 +187,7 @@ public class QueryConvertor {
                                                 }
                                                 if (!locObjectSet.contains(lsb.toString())) {
                                                     lbq.add(lmbq.build(), BooleanClause.Occur.SHOULD);
+                                                    ret.add(lmbq.build());
                                                     locObjectSet.add(lsb.toString());
                                                 }
                                             } else {

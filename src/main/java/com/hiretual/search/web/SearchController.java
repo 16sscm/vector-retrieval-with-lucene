@@ -64,10 +64,12 @@ public class SearchController {
     }
     @RequestMapping(value="/search", method=RequestMethod.POST)
     public String search(@RequestBody JsonNode query) {
-        long start = System.currentTimeMillis();
+        long t1 = System.currentTimeMillis();
         JsonNode esQuery = QueryConvertor.postForEntityWithHeader(query.toString());
-        logger.info(esQuery.toString());
+        // logger.info(esQuery.toString());
+        long t2 = System.currentTimeMillis();
         List<Query> queries = QueryConvertor.convertESQuery(esQuery);
+        long t3 = System.currentTimeMillis();
         if(queries==null){
             return null;
         }
@@ -207,19 +209,19 @@ public class SearchController {
         for (int i = 0; i < vec.length; i++) {
             v[i] = (float)vec[i];
         }
-        KNNQuery kq = new KNNQuery("test_vec", v, k, "test_index");
+        KNNQuery kq = new KNNQuery( v);
         //TODO: to be implemented
         try {
             KNNResult[] result = searchService.search(queries, kq, k);
             if(result==null){
                 return "";
             }
-            logger.info(result.length + "");
+            logger.info(result.length + "results");
         } catch(Exception e) {
             logger.error("search error", e);
         }
         long end = System.currentTimeMillis();
-        logger.info("cost: " + (end - start) + "ms");
+        logger.info("cost: " + (end - t3) + "|" + (t3-t2) +"|" +(t2-t1) + " ms");
         return "done";
     }
 }

@@ -35,7 +35,7 @@ public class SearchService {
     private static  IndexReader indexReader;
     private static IndexSearcher indexSearcher;
     private static int searchThreshold;
-
+    private static int numDocs;
     private static CLib clib = CLib.INSTANCE;
     static {
         
@@ -48,6 +48,12 @@ public class SearchService {
             logger.info(USER_HOME);
             indexReader=DirectoryReader.open(MMapDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
             indexSearcher = new IndexSearcher(indexReader);
+            int maxDocNum=indexReader.maxDoc();
+            numDocs=indexReader.numDocs();
+            if(maxDocNum!=numDocs){
+            logger.warn("search service init failed,invalid document num for index,numDocs: "+numDocs+",maxDoc:"+maxDocNum);
+           
+            }
         } catch (IOException e) {
             logger.warn("fail to initialize index searcher");
         }
@@ -62,17 +68,12 @@ public class SearchService {
      */
     public KNNResult[] search(List<Query> querys, KNNQuery kq, int size) throws IOException {
         long t1 = System.currentTimeMillis();
-        int totalDocNum=indexReader.maxDoc();
-        int numDocs=indexReader.numDocs();
-        if(totalDocNum!=numDocs){
-          logger.warn("stop search,invalid document num for index,numDocs: "+numDocs+",maxDoc:"+totalDocNum);
-          return null;
-        }
+        
         Query query;
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         
         for(Query q:querys){
-            logger.info(indexSearcher.count(q) +"|"+q.toString());
+            // logger.info(indexSearcher.count(q) +"|"+q.toString());
             builder.add(q, BooleanClause.Occur.FILTER);
         }
         query=builder.build();
@@ -116,10 +117,15 @@ public class SearchService {
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
         //execute this query ，as a result ，we can got a result combine ann with lucene filter
        
-        kq.setRation(totalDocNum/count);
+        kq.setK(size);
+        kq.setClusterAverageVector(numDocs/IndexBuildService.numIvfCluster);
+        kq.setRation((float)numDocs/count);
         builder.add(kq, BooleanClause.Occur.MUST);
         query = builder.build();
+        
         ScoreDoc[] hits = indexSearcher.search(query, size).scoreDocs;
+        long t3 = System.currentTimeMillis();
+        logger.info("" + (t2-t1) +"|"+ (t3-t2));
         // KNNQueryResult[] results = Utils.transformScoreDocToKNNQueryResult(hits);
         return convertScoreDoc2KNNResult(hits);
 

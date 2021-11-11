@@ -25,7 +25,7 @@ public class Utils {
         FakeQueryWrapper fakeQuery=new FakeQueryWrapper();
         List<Query>filterQuerys=new ArrayList<>();
         filterQuerys.add(IntPoint.newRangeQuery("price", 0, 999999));
-        fakeQuery.setKnnQuery(new KNNQuery("test_vec",getVector(128),10,"test_index"));
+        // fakeQuery.setKnnQuery(new KNNQuery("test_vec",getVector(128),10,"test_index"));
         fakeQuery.setFilterQuerys(filterQuerys);
         return fakeQuery;
     }

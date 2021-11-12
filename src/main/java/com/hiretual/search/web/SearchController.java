@@ -214,14 +214,15 @@ public class SearchController {
         try {
             KNNResult[] result = searchService.search(queries, kq, k);
             if(result==null){
+                logger.info("0 results");
                 return "";
             }
-            logger.info(result.length + "results");
+            logger.info(result.length + " results");
         } catch(Exception e) {
             logger.error("search error", e);
         }
         long end = System.currentTimeMillis();
-        logger.info("cost: " + (end - t3) + "|" + (t3-t2) +"|" +(t2-t1) + " ms");
+        logger.info("total cost: " + (end - t3) + "|" + (t3-t2) +"|" +(t2-t1) + " ms");
         return "done";
     }
 }

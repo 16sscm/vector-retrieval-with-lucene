@@ -3,7 +3,7 @@ package com.hiretual.search.filterindex;
 import com.hiretual.search.utils.GlobalPropertyUtils;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
-
+import com.sun.jna.Pointer;
 
 
 public interface CLib extends Library {
@@ -70,5 +70,6 @@ public interface CLib extends Library {
  */
     long FilterKnn_IvfpqSearch(float[]query,long numSearchCluster,long numSearchVector,long maxZeroCluster, float radius,long topK,long[]resultIds,float[] resultDistances);
 
-   
+    Pointer FilterKnn_TestStringArray(String[]input , long n);
+    void FilterKnn_ReleaseStringArray(Pointer pointer);
 }

@@ -1,8 +1,9 @@
 import com.hiretual.search.filterindex.*;
 import com.hiretual.search.utils.GlobalPropertyUtils;
-import java.io.File;
+import com.sun.jna.Pointer;
 import java.util.Random;
 import org.junit.Test;
+
 
 public class ClibTest {
   String USER_HOME = System.getProperty("user.home");
@@ -78,5 +79,13 @@ public class ClibTest {
                                            resultIds1, resultDistances1);
     System.out.println("done!cost:" + (System.currentTimeMillis() - t));
     System.out.println(suc4 + "tttttt");
+  }
+  @Test
+  public void testPointer(){
+    CLib cLib = CLib.INSTANCE;
+    Pointer pointer=cLib.FilterKnn_TestStringArray(new String[]{"aaa","vvvv","cccccc"},3);
+    String []strs=pointer.getStringArray(0);
+    cLib.FilterKnn_ReleaseStringArray(pointer);
+    System.out.println(strs[0]+ "tttttt");
   }
 }

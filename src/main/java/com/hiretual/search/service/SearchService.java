@@ -111,7 +111,7 @@ public class SearchService {
             //     KNNQueryResult knnQueryResult=new KNNQueryResult((int)resultIds[i], KNNWeight.normalizeScore( resultDistances[i]));
             //     results[i]=knnQueryResult;
             // }
-            logger.info("" + (t2-t1) +"|"+ (t3-t2) +"|"+ (t4-t3) +"|"+ (t5-t4));
+            logger.info("count:"+count+"," + (t2-t1) +"|"+ (t3-t2) +"|"+ (t4-t3) +"|"+ (t5-t4));
             return convertFlatResult2KNNResult(resultNum,resultIds,resultDistances);
         }
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
@@ -122,10 +122,19 @@ public class SearchService {
         kq.setRation((float)numDocs/count);
         builder.add(kq, BooleanClause.Occur.MUST);
         query = builder.build();
-        
-        ScoreDoc[] hits = indexSearcher.search(query, size).scoreDocs;
+         
+        Query query1;
+        BooleanQuery.Builder builder1 = new BooleanQuery.Builder();
+        builder1.add(kq, BooleanClause.Occur.MUST);
+        for(Query q:querys){
+            // logger.info(indexSearcher.count(q) +"|"+q.toString());
+            builder1.add(q, BooleanClause.Occur.FILTER);
+        }
+        query1=builder1.build();
+
+        ScoreDoc[] hits = indexSearcher.search(query1, size).scoreDocs;
         long t3 = System.currentTimeMillis();
-        logger.info("" + (t2-t1) +"|"+ (t3-t2));
+        logger.info("count:"+count+"," + (t2-t1) +"|"+ (t3-t2));
         // KNNQueryResult[] results = Utils.transformScoreDocToKNNQueryResult(hits);
         return convertScoreDoc2KNNResult(hits);
 
@@ -134,6 +143,7 @@ public class SearchService {
     private KNNResult[] convertFlatResult2KNNResult(long size,long[]resultIds,float[]resultDistances){
        
         try{
+            long t1 = System.currentTimeMillis();
             KNNResult[] results=new KNNResult[(int)size];
             HashSet<String> uidField = new HashSet<>();
             uidField.add("uid");
@@ -143,6 +153,8 @@ public class SearchService {
                 results[i]=new KNNResult(uid, KNNWeight.normalizeScore( resultDistances[i]));
                 
             }
+            long t2 = System.currentTimeMillis();
+            logger.info("convertFlatResult2KNNResult cost: "+(t2-t1));
             return results;
         }catch(IOException e){
             e.printStackTrace();
@@ -154,6 +166,7 @@ public class SearchService {
     private  KNNResult[] convertScoreDoc2KNNResult(ScoreDoc[] scoreDocs){
        
         try{
+            long t1 = System.currentTimeMillis();
             KNNResult[] results=new KNNResult[scoreDocs.length];
             HashSet<String> uidField = new HashSet<>();
             uidField.add("uid");
@@ -162,6 +175,8 @@ public class SearchService {
                 String uid = doc.get("uid");
                 results[i]=new KNNResult(uid, scoreDocs[i].score);
             }
+            long t2 = System.currentTimeMillis();
+            logger.info("convertScoreDoc2KNNResult cost: "+(t2-t1));
             return results;
         }catch(IOException e){
             e.printStackTrace();

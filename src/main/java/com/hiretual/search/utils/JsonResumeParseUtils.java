@@ -9,7 +9,7 @@ public class JsonResumeParseUtils {
     }
 
     /**
-     * 获取boolean类型的JsonNode的某字段，默认值为0
+     * 获取boolean类型的JsonNode的某字段，默认值为false
      * @param jsonNode
      * @param fieldName
      * @return

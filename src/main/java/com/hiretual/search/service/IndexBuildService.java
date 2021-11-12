@@ -81,7 +81,7 @@ public class IndexBuildService {
 		}
 		for (String value : values) {
 			if (StringUtils.isEmpty(value)) {
-				Field field = new StringField(fieldName, value, isStored);
+				Field field = new StringField(fieldName, value.toLowerCase(), isStored);
 				doc.add(field);
 			}
 		}
@@ -91,7 +91,7 @@ public class IndexBuildService {
 		if (StringUtils.isEmpty(value)) {
 			return;
 		}
-		Field field = new StringField(fieldName, value, isStored);
+		Field field = new StringField(fieldName, value.toLowerCase(), isStored);
 		doc.add(field);
 	}
 
@@ -137,9 +137,11 @@ public class IndexBuildService {
 			addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
 			addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
 			addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
+			addIntPointIntoDoc(doc, "hasPersonalEmail", resume.isHasPersonalEmail() ? 1 : 0);
+			addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0); //TODO: need data support
 			addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
 
-			addStringIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
+			addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
 			addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
 			addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
 			addStringIntoDoc(doc, "nation", resume.getLocNation(), Field.Store.NO);

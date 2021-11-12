@@ -10,6 +10,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
+import org.apache.lucene.util.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -29,6 +30,7 @@ public class QueryConvertor {
         MatchAllDocsQuery madq = new MatchAllDocsQuery();
         excludebq.add(madq, BooleanClause.Occur.SHOULD);
         int excludeCount = 0;
+        Analyzer analyzer = new StandardAnalyzer();
 
         if (esQuery != null && !esQuery.isNull() && esQuery.has("bool")) {
             JsonNode boolNode = esQuery.get("bool");
@@ -45,7 +47,7 @@ public class QueryConvertor {
                             } else if (termNode.has("user.location.country.keyword") && getFieldsCount(termNode) == 1) {
                                 ret.add(new TermQuery(new Term("nation", termNode.get("user.location.country.keyword").get("value").asText())));
                             } else {
-                                logger.info("unexpected term query:" + termNode.toString());
+                                logger.warn("unexpected term query:" + termNode.toString());
                             }
                         } else if (!node.isNull() && node.has("terms")) {
                             JsonNode termNode = node.get("terms");
@@ -63,7 +65,7 @@ public class QueryConvertor {
                                 // ignore normalized titles
                                 continue;
                             } else {
-                                logger.info("unexpected terms query:" + termNode.toString());
+                                logger.warn("unexpected terms query:" + termNode.toString());
                             }
                         } else if (!node.isNull() && node.has("exists")) {
                             JsonNode termNode = node.get("exists");
@@ -73,7 +75,7 @@ public class QueryConvertor {
                                 //TODO: info_tech need to be handled
                                 continue;
                             } else {
-                                logger.info("unexpected terms query:" + termNode.toString());
+                                logger.warn("unexpected terms query:" + termNode.toString());
                             }
                         } else if (!node.isNull() && node.has("range")) {
                             JsonNode termNode = node.get("range");
@@ -84,14 +86,13 @@ public class QueryConvertor {
 //                                return null;
                                 continue;
                             } else {
-                                logger.info("unexpected education grad year filter:" + termNode.toString());
+                                logger.warn("unexpected education grad year filter:" + termNode.toString());
                             }
                         } else if (!node.isNull() && node.has("query_string")) {
                             JsonNode termNode = node.get("query_string");
                             if (termNode.isNull() || termNode.isEmpty()) {
                                 continue;
                             } else if (termNode.has("query") && termNode.get("default_field").asText().equals("user.global_search")) {
-                                Analyzer analyzer = new StandardAnalyzer();
                                 QueryParser qp = new QueryParser("compound", analyzer);
                                 if (termNode.get("default_operator").asText().equals("and")) {
                                     qp.setDefaultOperator(QueryParser.AND_OPERATOR);
@@ -107,7 +108,7 @@ public class QueryConvertor {
                                     continue;
                                 }
                             } else {
-                                logger.info("unexpected query string filter:" + termNode.toString());
+                                logger.warn("unexpected query string filter:" + termNode.toString());
                             }
                         } else if (!node.isNull() && node.has("bool")) {
                             JsonNode bNode = node.get("bool");
@@ -139,9 +140,10 @@ public class QueryConvertor {
                                         for (JsonNode loc : locs) {
                                             if (!loc.findPath("user.location.location_value").isMissingNode()) {
 
-                                                String locValue = loc.get("match_phrase").get("user.location.location_value").get("query").asText().toLowerCase();
+                                                String locValue = loc.get("match_phrase").get("user.location.location_value").get("query").asText();
                                                 if (!locValueSet.contains(locValue)) {
-                                                    lbq.add(new PhraseQuery("compound", split2Array(locValue)), BooleanClause.Occur.SHOULD);
+                                                    QueryBuilder queryBuilder = new QueryBuilder(analyzer);
+                                                    lbq.add(queryBuilder.createPhraseQuery("compound", locValue), BooleanClause.Occur.SHOULD);
                                                     locValueSet.add(locValue);
                                                 }
 
@@ -154,19 +156,19 @@ public class QueryConvertor {
                                                         if (!must.findPath("user.location.continent.keyword").isMissingNode()) {
                                                             String conti = must.get("term").get("user.location.continent.keyword").get("value").asText();
                                                             lsb.append('+').append(conti);
-                                                            lmbq.add(new TermQuery(new Term("continent", conti.toLowerCase())), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("continent", conti)), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.country.keyword").isMissingNode()) {
                                                             String country = must.get("term").get("user.location.country.keyword").get("value").asText();
                                                             lsb.append('+').append(country);
-                                                            lmbq.add(new TermQuery(new Term("nation", country.toLowerCase())), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("nation", country)), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.state.keyword").isMissingNode()) {
                                                             String state = must.get("term").get("user.location.state.keyword").get("value").asText();
                                                             lsb.append('+').append(state);
-                                                            lmbq.add(new TermQuery(new Term("state", state.toLowerCase())), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("state", state)), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.city.keyword").isMissingNode()) {
                                                             String city = must.get("term").get("user.location.city.keyword").get("value").asText();
                                                             lsb.append('+').append(city);
-                                                            lmbq.add(new TermQuery(new Term("city", city.toLowerCase())), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("city", city)), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.geo_coordinates").isMissingNode()) {
                                                             JsonNode latlon = must.get("geo_distance").get("user.location.geo_coordinates");
                                                             lsb.append('+').append('(').append(latlon.get(1).asDouble()).append(',').append(latlon.get(0).asDouble()).append(')').append('+').append(must.get("geo_distance").get("distance").asInt());
@@ -227,7 +229,7 @@ public class QueryConvertor {
                                     if (!bNode.get("should").findPath("user.tags.experience_tag").isMissingNode()) {
                                         JsonNode hf = bNode.get("should");
                                         if (hf.size() > 1) {
-                                            logger.info("multi field in json:" + hf.toString());
+                                            logger.warn("multi field in json:" + hf.toString());
                                         }
                                         BooleanQuery.Builder yoebq = new BooleanQuery.Builder();
                                         for(JsonNode h : hf) {
@@ -253,7 +255,7 @@ public class QueryConvertor {
                                     if (!bNode.get("should").findPath("user.education.education_level.keyword").isMissingNode()) {
                                         JsonNode degrees = bNode.get("should");
                                         if (degrees.size() > 2) {
-                                            logger.info("too many fields in degree json:" + degrees.toString());
+                                            logger.warn("too many fields in degree json:" + degrees.toString());
                                         }
                                         BooleanQuery.Builder degreebq = new BooleanQuery.Builder();
                                         for(JsonNode degree : degrees) {
@@ -293,7 +295,7 @@ public class QueryConvertor {
                                             }
                                         }
                                         if (companyIds.size() > 2) {
-                                            logger.info("too many fields in company id json:" + companyIds.toString());
+                                            logger.warn("too many fields in company id json:" + companyIds.toString());
                                         }
                                         ret.add(cibq.build());
                                         c++;
@@ -304,12 +306,13 @@ public class QueryConvertor {
                                         for(JsonNode major : majors) {
                                             JsonNode terms = major.findPath("should");
                                             if (terms.size() > 2) {
-                                                logger.info("too many fields in major json:" + terms.toString());
+                                                logger.warn("too many fields in major json:" + terms.toString());
                                             }
                                             for (JsonNode maj : terms) {
                                                 if (!maj.findPath("user.education.majors").isMissingNode()) {
+                                                    QueryBuilder queryBuilder = new QueryBuilder(analyzer);
                                                     //TODO: maybe not necessary
-                                                    majorbq.add(new PhraseQuery("compound", split2Array(maj.get("match_phrase").get("user.education.majors").get("query").asText())), BooleanClause.Occur.SHOULD);
+                                                    majorbq.add(queryBuilder.createPhraseQuery("compound", maj.get("match_phrase").get("user.education.majors").get("query").asText()), BooleanClause.Occur.SHOULD);
                                                 } else if (!maj.findPath("user.education.degrees").isMissingNode()) {
                                                     continue;
                                                 } else {
@@ -359,9 +362,9 @@ public class QueryConvertor {
                                         c++;
                                     }
                                     if (c == 0) {
-                                        logger.info("unexpected should filter:" + bNode.toString());
+                                        logger.warn("unexpected should filter:" + bNode.toString());
                                     } else if (c > 1) {
-                                        logger.info("unknown clause in should filter:" + bNode.toString());
+                                        logger.warn("unknown clause in should filter:" + bNode.toString());
                                     }
                                     count ++;
                                 }
@@ -379,7 +382,8 @@ public class QueryConvertor {
                                         JsonNode currentPositions = bNode.get("must_not");
                                         int k = currentPositions.size();
                                         if (!currentPositions.findPath("user.current_experience.companies").isMissingNode()) {
-                                            excludebq.add(new PhraseQuery("compound", split2Array(currentPositions.findPath("user.current_experience.companies").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+                                            QueryBuilder queryBuilder = new QueryBuilder(analyzer);
+                                            excludebq.add(queryBuilder.createPhraseQuery("compound", currentPositions.findPath("user.current_experience.companies").get("query").asText()), BooleanClause.Occur.MUST_NOT);
                                             excludeCount++;
                                             k --;
                                         }
@@ -389,7 +393,7 @@ public class QueryConvertor {
                                             k--;
                                         }
                                         if (k != 0) {
-                                            logger.info("unexpected must not phrase match: " + currentPositions.toString());
+                                            logger.warn("unexpected must not phrase match: " + currentPositions.toString());
                                         }
                                         c++;
                                     }
@@ -404,7 +408,7 @@ public class QueryConvertor {
                                             k --;
                                         }
                                         if (k != 0) {
-                                            logger.info("unexpected must not term match: " + currentCompanyIds.toString());
+                                            logger.warn("unexpected must not term match: " + currentCompanyIds.toString());
                                         }
                                         c++;
                                     }
@@ -429,18 +433,18 @@ public class QueryConvertor {
                                         c++;
                                     }
                                     if (c == 0) {
-                                        logger.info("unexpected must_not filter:" + bNode.toString());
+                                        logger.warn("unexpected must_not filter:" + bNode.toString());
                                     } else if (c > 1) {
-                                        logger.info("unknown clause in must_not filter:" + bNode.toString());
+                                        logger.warn("unknown clause in must_not filter:" + bNode.toString());
                                     }
                                     count ++;
                                 }
                                 if (bNode.has("must")) {
-                                    logger.info("must clause in bool filter:" + bNode.toString());
+                                    logger.warn("must clause in bool filter:" + bNode.toString());
                                     count ++;
                                 }
                                 if (count > 1) {
-                                    logger.info("multi clauses in bool filter:" + bNode.toString());
+                                    logger.warn("multi clauses in bool filter:" + bNode.toString());
                                 }
                             } else {
                                 logger.warn("should not happen, unexpected bool filter:" + bNode.toString());
@@ -494,7 +498,6 @@ public class QueryConvertor {
                 if (!n.equals("filter") && !n.equals("must_not") && !n.equals("should") && !n.equals("adjust_pure_negative") && !n.equals("boost")) {
                     logger.warn("unknown field in bool node: " + n);
                 }
-
             }
         } else {
             logger.warn("strange es query:" + esQuery.toString());

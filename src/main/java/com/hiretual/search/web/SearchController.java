@@ -39,7 +39,7 @@ public class SearchController {
 
     @RequestMapping(value="/health/check", method={RequestMethod.GET, RequestMethod.POST})
     public String healthCheck() {
-        return "ok";
+        return "ok\n";
     }
 
     @RequestMapping(value="/doc/add", method=RequestMethod.POST, produces="application/json;charset=UTF-8")

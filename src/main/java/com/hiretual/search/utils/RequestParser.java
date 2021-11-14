@@ -1,5 +1,6 @@
 package com.hiretual.search.utils;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -45,5 +46,16 @@ public class RequestParser {
         }
 
         return returnNode;
+    }
+    public static String getJsonString( Object object){
+        ObjectMapper mapper = new ObjectMapper(); 
+        String str="";
+        try {
+            str = mapper.writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return str;
     }
 }

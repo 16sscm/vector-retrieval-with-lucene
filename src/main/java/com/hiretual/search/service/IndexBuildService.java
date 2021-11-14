@@ -1,9 +1,11 @@
 package com.hiretual.search.service;
 
 import com.hiretual.search.filterindex.*;
+import com.hiretual.search.model.FilterResume;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.utils.GlobalPropertyUtils;
 import com.hiretual.search.utils.JedisUtils;
+import com.hiretual.search.utils.RequestParser;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +20,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -40,11 +43,13 @@ public class IndexBuildService {
 	static String c_index_dir =
 			USER_HOME + GlobalPropertyUtils.get("c_index_dir");
 
-	static String pFlatFile = c_index_dir + GlobalPropertyUtils.get("flat_file");
+	
 	static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
 	public static int numIvfCluster;
 	private static CLib clib = CLib.INSTANCE;
-
+    private int requestCount=0;
+	@Autowired
+	private JedisUtils jedisUtils;
 	static {
 		File file = new File(c_index_dir);
 		if (!file.exists()) {
@@ -69,7 +74,7 @@ public class IndexBuildService {
 		}
 		// load knn model(trained) and flat map if exist to make it  searchable,
 		// otherwise you should  add the vector first,and remember to save
-		int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 64, 8, pFlatFile, pIvfpqFile);
+		int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 64, 8,  pIvfpqFile);
 		if(suc==0){
 			logger.error("fail to initialize clib,msg:"+clib.FilterKnn_GetErrorMsg());
 		}
@@ -115,8 +120,9 @@ public class IndexBuildService {
 
 	public void addDocument(List<Resume> resumes) {
 		int count = 0;
-		JedisUtils jedisUtils=new JedisUtils();
+		requestCount++;
 		for (Resume resume : resumes) {
+			count++;
 			Document doc = new Document();
 
 			addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
@@ -159,24 +165,27 @@ public class IndexBuildService {
 					new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
 			doc.add(distanceField);
 
-			/*count++;
-			// uidEmbeddingMap.put(resume.getUid(), resume.getEmbedding());
+			
+	
+			if(resume.getEmbedding()==null){
+				logger.error("fail to set embedding ,request count : "+requestCount+",count:"+count+",resume: " + resume);
+			}
+			
 			jedisUtils.set(resume.getUid(), resume.getEmbedding());
+			
+			
 			// logger.info("set uid->vector to pika,uid:"+resume.getUid());
 			try {
 				writer.addDocument(doc);
-				//                if (count % 200 == 0 || count == resumes.size()) {
-				//                    logger.info("documents flushed to disk, count: " +
-				//                    count); writer.flush();
-				//                }
+			
 			} catch (IOException e) {
 				logger.error("fail to add document: " + resume, e);
-			}*/
+			}
 		}
-		/*logger.info("add finish,num:"+resumes.size());
+		logger.info("add finish,num:"+resumes.size()+",request count:"+requestCount);
 
-		logger.info("pika total dbsize: " + jedisUtils.debsize());
-		jedisUtils.close();*/
+	
+		
 	}
 
 	public synchronized void mergeSegments() {
@@ -207,26 +216,26 @@ public class IndexBuildService {
 			}else{
 				logger.info(maxDocId+" documents to do clib index");
 			}
-			JedisUtils jedisUtils=new JedisUtils();
+		
 
 			int docId = 0;
 			maxDocId=maxDocId-docId;
 
-			int batchSize = 10000;//test to be appropriate value
+			int batchSize = 5000;//test to be appropriate value,to large will make pika error
 			int integralBatch = maxDocId / batchSize;
 			int remainBatchSize = maxDocId % batchSize;
 
 			for (int i = 0; i < integralBatch; i++) {
-				addVectors(lr,jedisUtils,batchSize,docId);
+				addVectors(lr,batchSize,docId);
 				docId+=batchSize;
 			}
 			if(remainBatchSize>0){
-				addVectors(lr,jedisUtils,remainBatchSize,docId);
+				addVectors(lr,remainBatchSize,docId);
 				docId+=remainBatchSize;
 			}
 			reader.close();
-			jedisUtils.close();
-			int success=clib.FilterKnn_Save(pFlatFile, pIvfpqFile);
+			
+			int success=clib.FilterKnn_Save(pIvfpqFile);
 			if(success!=1){
 				logger.error("jna :FilterKnn_Save call error,msg:"+clib.FilterKnn_GetErrorMsg() );
 
@@ -243,7 +252,7 @@ public class IndexBuildService {
 	 * @return false if error occur
 	 * @throws IOException
 	 */
-	private void addVectors(LeafReader lr, JedisUtils jedisUtils,int size, int docIdStart) throws IOException {
+	private void addVectors(LeafReader lr, int size, int docIdStart) throws IOException {
 		long s=System.currentTimeMillis();
 
 		Set<String> uidField = new HashSet<>();
@@ -251,8 +260,8 @@ public class IndexBuildService {
 		List<String>uids=new ArrayList<>();
 		List<Integer>docIds=new ArrayList<>();
 
-		logger.info("reading lucene...");
-		long t=System.currentTimeMillis();
+		// logger.info("reading lucene...");
+		// long t=System.currentTimeMillis();
 		for (int j = 0; j < size; j++) {
 
 			Document doc = lr.document(docIdStart, uidField);
@@ -267,16 +276,18 @@ public class IndexBuildService {
 			}
 			docIdStart++;
 		}
-		logger.info("done!cost:"+(System.currentTimeMillis()-t));
+		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
 
 		int existDocSize = docIds.size();
 		long id[] = new long[existDocSize];
+		FilterResume filterResumes[]=new FilterResume[existDocSize];
 		for (int i = 0; i < existDocSize; i++) {
+			filterResumes[i]=new FilterResume(uids.get(i));
 			id[i] = docIds.get(i);
 		}
 		float[] vectors = new float[existDocSize * embeddingDimension];
-		logger.info("reading pika...");
-		t=System.currentTimeMillis();
+		// logger.info("reading pika...");
+		// t=System.currentTimeMillis();
 		int batchSize = 1000;
 		int integralBatch = existDocSize / batchSize;
 		int remainBatchSize = existDocSize % batchSize;
@@ -292,7 +303,7 @@ public class IndexBuildService {
 			from+=remainBatchSize;
 		}
 
-		logger.info("done!cost:"+(System.currentTimeMillis()-t));
+		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
 		for (int i = 0; i < list.size(); i++) {
 			float[] v = list.get(i);
 
@@ -308,13 +319,14 @@ public class IndexBuildService {
 				// return false;
 			}
 		}
-		logger.info("add vector...");
-		t=System.currentTimeMillis();
-		int success=clib.FilterKnn_AddVectors(vectors, id, size);
+		// logger.info("add vector...");
+		// t=System.currentTimeMillis();
+		String filterResumeJson=RequestParser.getJsonString(filterResumes);
+		int success=clib.FilterKnn_AddVectors(vectors, id, size,filterResumeJson);
 		if(success!=1){
 			logger.warn("jna:FilterKnn_AddVectors call error,msg: "+clib.FilterKnn_GetErrorMsg() );
 		}
-		logger.info("done!cost:"+(System.currentTimeMillis()-t));
+		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
 		logger.info("add vector,size:"+size+",end docid:"+docIdStart+",cost:"+(System.currentTimeMillis()-s));
 	}
 

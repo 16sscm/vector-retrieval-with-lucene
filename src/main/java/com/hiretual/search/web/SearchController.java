@@ -6,6 +6,7 @@ import com.hiretual.search.model.Resume;
 import com.hiretual.search.service.IndexBuildService;
 import com.hiretual.search.service.SearchService;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.hiretual.search.utils.JedisUtils;
 import com.hiretual.search.utils.QueryConvertor;
 import com.hiretual.search.utils.RequestParser;
 import org.apache.lucene.search.*;
@@ -57,7 +58,6 @@ public class SearchController {
     public void mergeIndex() {
         indexBuildService.mergeSegments();
     }
-
     @RequestMapping(value="/index/commit", method={RequestMethod.GET})
     public int commitAndCheckIndexSize() {
         return indexBuildService.commitAndCheckIndexSize();

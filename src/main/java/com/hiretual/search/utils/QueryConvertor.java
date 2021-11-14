@@ -22,7 +22,7 @@ import java.util.*;
 
 public class QueryConvertor {
 
-    private static final Logger logger = LoggerFactory.getLogger(JedisUtils.class);
+    private static final Logger logger = LoggerFactory.getLogger(QueryConvertor.class);
 
     public static List<Query> convertESQuery(JsonNode esQuery) {
         List<Query> ret = new ArrayList<>();

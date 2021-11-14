@@ -10,41 +10,47 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 
+@Component
 public class JedisUtils{
     private static final Logger logger = LoggerFactory.getLogger(JedisUtils.class);
-    // @Autowired
-    // private JedisPool jedisPool;
+    @Autowired
+    private JedisPool jedisPool;
+    
 
-    Jedis jedis ;
-    public JedisUtils(){
-        jedis = new Jedis("10.100.10.19",9222,5000);
-    }
+   
+   
    
     public void set(String key, float[] array) {
-       
+        Jedis jedis = jedisPool.getResource();
         try{
             jedis.set(key.getBytes(), serialize(array));
         } finally {
-          
+          jedis.close();
         }
     }
 
     public float[] get(String key) {
-     
+        Jedis jedis = jedisPool.getResource();
         try{
-            return unserialize(jedis.get(key.getBytes()));
+            byte[] bytes=jedis.get(key.getBytes());
+            float[]ret=unserialize(bytes);
+            return ret;
         } catch(Exception e) {
             return null;
         } finally {
-          
+          jedis.close();
         }
     }
     public List<float[]>pipeline(List<String> keys){
-        // Jedis jedis = jedisPool.getResource();
+        Jedis jedis = jedisPool.getResource();
         Pipeline pipeline = jedis.pipelined();
         List<float[]> ret = new ArrayList<>();
         for(String key :keys){
@@ -56,12 +62,11 @@ public class JedisUtils{
             byte[] bytes=(byte[])o;
             ret.add(unserialize(bytes));
         }
-
+        jedis.close();
         return ret;
     }
     public List<float[]> mget(List<String> keys) {
-        
-      
+        Jedis jedis = jedisPool.getResource();
         byte[][] array = new byte[keys.size()][];
         for (int i = 0; i < keys.size(); i++){
             
@@ -79,7 +84,7 @@ public class JedisUtils{
         } catch(Exception e) {
             return null;
         } finally {
-           
+           jedis.close();
         }
     }
 
@@ -109,10 +114,6 @@ public class JedisUtils{
         }
         return null;
     }
-    public String debsize(){
-        return jedis.dbSize().toString();
-    }
-    public void close(){
-        jedis.close();
-    }
+ 
+  
 }

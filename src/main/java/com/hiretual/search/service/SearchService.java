@@ -1,7 +1,7 @@
 package com.hiretual.search.service;
 
 import com.hiretual.search.utils.GlobalPropertyUtils;
-
+import com.sun.jna.Pointer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -100,7 +100,7 @@ public class SearchService {
             long[]resultIds=new long[size];
             float[]resultDistances=new float[size];
             long t4 = System.currentTimeMillis();
-            long resultNum=clib.FilterKnn_FlatSearch(kq.getQueryVector(), id, flatSearchScale,0, size, resultIds, resultDistances);
+            long resultNum=clib.FilterKnn_FlatSearch(kq.getQueryVector(), id, flatSearchScale,0,null,size, resultIds, resultDistances);
             long t5 = System.currentTimeMillis();
             if(resultNum<=0){
                 logger.warn("flat search error or got empty result,msg:"+clib.FilterKnn_GetErrorMsg());
@@ -141,48 +141,39 @@ public class SearchService {
     }
    
     private KNNResult[] convertFlatResult2KNNResult(long size,long[]resultIds,float[]resultDistances){
-       
-        try{
-            long t1 = System.currentTimeMillis();
-            KNNResult[] results=new KNNResult[(int)size];
-            HashSet<String> uidField = new HashSet<>();
-            uidField.add("uid");
-            for(int i=0;i<size;i++){
-                Document doc =indexReader.document((int)resultIds[i],uidField);
-                String uid = doc.get("uid");
-                results[i]=new KNNResult(uid, KNNWeight.normalizeScore( resultDistances[i]));
-                
-            }
-            long t2 = System.currentTimeMillis();
-            logger.info("convertFlatResult2KNNResult cost: "+(t2-t1));
-            return results;
-        }catch(IOException e){
-            e.printStackTrace();
-           
+        long t1 = System.currentTimeMillis();
+        KNNResult[] results=new KNNResult[(int)size];
+        Pointer pointer=clib.FilterKnn_GetUids(resultIds,size);
+        String []uids=pointer.getStringArray(0);
+        clib.FilterKnn_ReleaseStringArray(pointer);
+        for(int i=0;i<size;i++){
+            results[i]=new KNNResult(uids[i], KNNWeight.normalizeScore( resultDistances[i]));
         }
-        return null;
-       
+        long t2 = System.currentTimeMillis();
+        logger.info("convertFlatResult2KNNResult cost: "+(t2-t1));
+        return results;
     }
     private  KNNResult[] convertScoreDoc2KNNResult(ScoreDoc[] scoreDocs){
        
-        try{
-            long t1 = System.currentTimeMillis();
-            KNNResult[] results=new KNNResult[scoreDocs.length];
-            HashSet<String> uidField = new HashSet<>();
-            uidField.add("uid");
-            for(int i=0;i<scoreDocs.length;i++){
-                Document doc =indexReader.document(scoreDocs[i].doc,uidField);
-                String uid = doc.get("uid");
-                results[i]=new KNNResult(uid, scoreDocs[i].score);
-            }
-            long t2 = System.currentTimeMillis();
-            logger.info("convertScoreDoc2KNNResult cost: "+(t2-t1));
-            return results;
-        }catch(IOException e){
-            e.printStackTrace();
-           
+        
+        long t1 = System.currentTimeMillis();
+        int size=scoreDocs.length;
+        KNNResult[] results=new KNNResult[size];
+        long []ids=new long[size];
+        for(int i=0;i<size;i++){
+            ids[i]=scoreDocs[i].doc;
         }
-        return null;
+        Pointer pointer=clib.FilterKnn_GetUids(ids,size);
+        String []uids=pointer.getStringArray(0);
+        clib.FilterKnn_ReleaseStringArray(pointer);
+        for(int i=0;i<scoreDocs.length;i++){
+            
+            results[i]=new KNNResult(uids[i], scoreDocs[i].score);
+        }
+        long t2 = System.currentTimeMillis();
+        logger.info("convertScoreDoc2KNNResult cost: "+(t2-t1));
+        return results;
+        
        
     }
 

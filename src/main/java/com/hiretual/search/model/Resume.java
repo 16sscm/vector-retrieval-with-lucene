@@ -304,6 +304,8 @@ public class Resume {
                     this.embedding[i] = (float) arrayIterator.next().asDouble();
                     i++;
                 }
+            } else {
+                logger.warn("no embedding " + this.getUid());
             }
         } catch (Exception e) {
             logger.error("fail to convert json to common parameter, input: " + jsonNode.toString(), e);

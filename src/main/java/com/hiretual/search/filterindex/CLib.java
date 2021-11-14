@@ -22,10 +22,9 @@ public interface CLib extends Library {
  * @param[in] numIvfCluster number of ivf cluster
  * @param[in] numPqqSegments number of PQ segment
  * @param[in] numPqBitsPerIdx number of bits required for store one PQ segment. At present, it can only be 8
- * @param[in] pFlatFile flat index file
  * @param[in] pIvfpqFile ivfpq index file
  */
-    int FilterKnn_InitLibrary(long dimension,long numIvfCluster,long numPqqSegments,long numPqBitsPerIdx,String pFlatFile,String pIvfpqFile );
+    int FilterKnn_InitLibrary(long dimension,long numIvfCluster,long numPqqSegments,long numPqBitsPerIdx,String pIvfpqFile );
     int FilterKnn_UnInitLibrary();
     /**
  * @brief add vectors
@@ -34,14 +33,14 @@ public interface CLib extends Library {
  * @param[in] id vector id
  * @param[in] n 
  */
-    int FilterKnn_AddVectors(float[]vectors,long[]id,long n);
+    int FilterKnn_AddVectors(float[]vectors,long[]id,long n,String pJsonAttrs);
     /**
  * @brief save index to file
  * 
  * @param[in] pFlatFile flat index file
  * @param[in] pIvfpqFile ivfpq index file
  */
-    int FilterKnn_Save(String pFlatFile,String pIvfpqFile);
+    int FilterKnn_Save(String pIvfpqFile);
     /**
  * @brief flat search
  * 
@@ -54,7 +53,7 @@ public interface CLib extends Library {
  * @param[out] resultDistances result distance buffer, buffer size: topK
  * @return number of searched vectors, <= topK 
  */
-    long FilterKnn_FlatSearch(float[]query,long[]candidateIds,long numCandidateIds,float radius,long topK,long[]resultIds,float[] resultDistances);
+    long FilterKnn_FlatSearch(float[]query,long[]candidateIds,long numCandidateIds,float radius, String pJsonFilter,long topK,long[]resultIds,float[] resultDistances);
     /**
  * @brief ivfpq search
  * 
@@ -68,8 +67,9 @@ public interface CLib extends Library {
  * @param[out] resultDistances result distance buffer, buffer size: topK
  * @return number of searched vectors, <= topK 
  */
-    long FilterKnn_IvfpqSearch(float[]query,long numSearchCluster,long numSearchVector,long maxZeroCluster, float radius,long topK,long[]resultIds,float[] resultDistances);
+    long FilterKnn_IvfpqSearch(float[]query,long numSearchCluster,long numSearchVector,long maxZeroCluster, float radius, String pJsonFilter,long topK,long[]resultIds,float[] resultDistances);
 
-    Pointer FilterKnn_TestStringArray(String[]input , long n);
+    Pointer FilterKnn_GetUids(long[]ids , long n);
+
     void FilterKnn_ReleaseStringArray(Pointer pointer);
 }

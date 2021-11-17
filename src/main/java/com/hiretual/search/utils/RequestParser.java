@@ -1,6 +1,7 @@
 package com.hiretual.search.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.List;
 
 public class RequestParser {
     private static final Logger logger = LoggerFactory.getLogger(RequestParser.class);
@@ -57,5 +59,16 @@ public class RequestParser {
             e.printStackTrace();
         }
         return str;
+    }
+    public static List<Double> transformJson2Array(String jsonString){
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            List<Double> list = mapper.readValue(jsonString,new TypeReference<List<Double>>() { });
+            return list;
+        } catch (JsonProcessingException e) {
+            logger.error("fail to parse json string to KNNResult list|" + jsonString, e);
+            return null;
+        }
+
     }
 }

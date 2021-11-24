@@ -44,14 +44,19 @@ public class SearchController {
     }
 
     @RequestMapping(value="/doc/add", method=RequestMethod.POST, produces="application/json;charset=UTF-8")
-    public void insertDocument(HttpServletRequest request) {
-        JsonNode array = RequestParser.getPostParameter(request);
-        List<Resume> list = new ArrayList<>();
-        for (JsonNode jn : array) {
-            Resume resume = new Resume(jn);
-            list.add(resume);
+    public String insertDocument(HttpServletRequest request) {
+        try{
+            JsonNode doc = RequestParser.getPostParameter(request);
+            Resume resume = new Resume(doc);
+            indexBuildService.addDocument(resume);
+           
+        }catch(Exception e){
+            logger.warn("fail to add document",e);
+            return "-1";
+
         }
-        indexBuildService.addDocument(list);
+        return "0";
+       
     }
    
     @RequestMapping(value="/index/merge", method={RequestMethod.GET, RequestMethod.POST})

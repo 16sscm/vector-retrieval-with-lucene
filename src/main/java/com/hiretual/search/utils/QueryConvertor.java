@@ -34,6 +34,26 @@ public class QueryConvertor {
 
         if (esQuery != null && !esQuery.isNull() && esQuery.has("bool")) {
             JsonNode boolNode = esQuery.get("bool");
+            if (!boolNode.isNull() && boolNode.has("must")) {
+                JsonNode mNode = boolNode.get("must");
+                if (!mNode.isNull() && !mNode.isEmpty() && mNode.isArray()) {
+                    for (JsonNode m : mNode) {
+                        if (!m.findPath("user.healthcare.license_state").isMissingNode() ||
+                            !m.findPath("user.healthcare.specialties").isMissingNode() ||
+                            !m.findPath("user.healthcare.titles").isMissingNode()) {
+                            //TODO: directly return
+//                            return null;
+                            continue;
+                        } else if (!m.findPath("query_string").isMissingNode()) {
+                            //TODO: directly return
+//                            return null;
+                            continue;
+                        } else {
+                            logger.warn("unknown must node: " + m.toString());
+                        }
+                    }
+                }
+            }
             if (!boolNode.isNull() && boolNode.has("filter")) {
                 JsonNode filterNode = boolNode.get("filter");
                 if (!filterNode.isNull() && !filterNode.isEmpty() && filterNode.isArray()) {
@@ -44,8 +64,11 @@ public class QueryConvertor {
                                 continue;
                             } else if (termNode.has("user.tags.has_personal_email") && getFieldsCount(termNode) == 1) {
                                 continue;
+                            } else if (termNode.has("user.tags.race") && getFieldsCount(termNode) == 1) {
+                                //TODO: handle it
+                                continue;
                             } else if (termNode.has("user.location.country.keyword") && getFieldsCount(termNode) == 1) {
-                                ret.add(new TermQuery(new Term("nation", termNode.get("user.location.country.keyword").get("value").asText())));
+                                ret.add(new TermQuery(new Term("nation", termNode.get("user.location.country.keyword").get("value").asText().toLowerCase())));
                             } else {
                                 logger.warn("unexpected term query:" + termNode.toString());
                             }
@@ -64,6 +87,25 @@ public class QueryConvertor {
                             } else if (termNode.has("user.current_experience.normed_titles") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
                                 // ignore normalized titles
                                 continue;
+                            } else if (termNode.has("user.current_experience.company_size") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                //TODO: directly return
+//                                return null;
+                                continue;
+                            } else if (termNode.has("user.info_tech.rank_level") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                //TODO: handle it
+                                continue;
+                            } else if (termNode.has("user.current_experience.company_id") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                //TODO: do sth
+                                continue;
+                            } else if (termNode.has("user.past_experience.company_id") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                //TODO: do sth
+                                continue;
+                            } else if (termNode.has("user.normed_skills") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                //TODO: ignore it
+                                continue;
+                            } else if (termNode.has("user.location.location_fmt.keyword") && termNode.has("boost") && getFieldsCount(termNode) == 2) {
+                                //TODO: handle it
+                                continue;
                             } else {
                                 logger.warn("unexpected terms query:" + termNode.toString());
                             }
@@ -74,6 +116,14 @@ public class QueryConvertor {
                             } else if (termNode.has("field") && termNode.get("field").asText().equals("user.info_tech") && getFieldsCount(termNode) == 2) {
                                 //TODO: info_tech need to be handled
                                 continue;
+                            } else if (termNode.has("field") && termNode.get("field").asText().equals("user.healthcare") && getFieldsCount(termNode) == 2) {
+                                //TODO: directly return
+//                                return null;
+                                continue;
+                            } else if (termNode.has("field") && termNode.get("field").asText().equals("user.publication.title") && getFieldsCount(termNode) == 2) {
+                                //TODO: directly return
+//                                return null;
+                                continue;
                             } else {
                                 logger.warn("unexpected terms query:" + termNode.toString());
                             }
@@ -82,6 +132,10 @@ public class QueryConvertor {
                             if (termNode.isNull() || termNode.isEmpty()) {
                                 continue;
                             } else if (termNode.has("user.education.grad_year") && getFieldsCount(termNode) == 1) {
+                                //TODO: directly return
+//                                return null;
+                                continue;
+                            } else if (termNode.has("user.tags.compensation_base_avg") && getFieldsCount(termNode) == 1) {
                                 //TODO: directly return
 //                                return null;
                                 continue;
@@ -104,7 +158,9 @@ public class QueryConvertor {
                                     Query qsq = qp.parse(qs);
                                     ret.add(qsq);
                                 } catch (ParseException e) {
-                                    logger.error("", e);
+                                    logger.error("can not parse: " + qs, e);
+                                    //TODO: directly return
+//                                    return null;
                                     continue;
                                 }
                             } else {
@@ -131,8 +187,9 @@ public class QueryConvertor {
                                         c++;
                                     }
                                     if (!bNode.get("should").findPath("user.location.location_value").isMissingNode() ||
-                                               !bNode.get("should").findPath("user.location.continent.keyword").isMissingNode() ||
-                                               !bNode.get("should").findPath("geo_distance").isMissingNode()) {
+                                        !bNode.get("should").findPath("user.location.continent.keyword").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.location.country.keyword").isMissingNode() ||
+                                        !bNode.get("should").findPath("geo_distance").isMissingNode()) {
                                         JsonNode locs = bNode.get("should");
                                         BooleanQuery.Builder lbq = new BooleanQuery.Builder();
                                         Set<String> locValueSet = new HashSet<>();
@@ -156,19 +213,19 @@ public class QueryConvertor {
                                                         if (!must.findPath("user.location.continent.keyword").isMissingNode()) {
                                                             String conti = must.get("term").get("user.location.continent.keyword").get("value").asText();
                                                             lsb.append('+').append(conti);
-                                                            lmbq.add(new TermQuery(new Term("continent", conti)), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("continent", conti.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.country.keyword").isMissingNode()) {
                                                             String country = must.get("term").get("user.location.country.keyword").get("value").asText();
                                                             lsb.append('+').append(country);
-                                                            lmbq.add(new TermQuery(new Term("nation", country)), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("nation", country.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.state.keyword").isMissingNode()) {
                                                             String state = must.get("term").get("user.location.state.keyword").get("value").asText();
                                                             lsb.append('+').append(state);
-                                                            lmbq.add(new TermQuery(new Term("state", state)), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("state", state.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.city.keyword").isMissingNode()) {
                                                             String city = must.get("term").get("user.location.city.keyword").get("value").asText();
                                                             lsb.append('+').append(city);
-                                                            lmbq.add(new TermQuery(new Term("city", city)), BooleanClause.Occur.MUST);
+                                                            lmbq.add(new TermQuery(new Term("city", city.toLowerCase())), BooleanClause.Occur.MUST);
                                                         } else if (!must.findPath("user.location.geo_coordinates").isMissingNode()) {
                                                             JsonNode latlon = must.get("geo_distance").get("user.location.geo_coordinates");
                                                             lsb.append('+').append('(').append(latlon.get(1).asDouble()).append(',').append(latlon.get(0).asDouble()).append(')').append('+').append(must.get("geo_distance").get("distance").asInt());
@@ -201,9 +258,10 @@ public class QueryConvertor {
                                         ret.add(lbq.build());
                                         c++;
                                     }
-                                    if (!bNode.get("should").findPath("user.current_experience.normed_titles").isMissingNode() ||
-                                               !bNode.get("should").findPath("user.past_experience.titles").isMissingNode() ||
-                                               !bNode.get("should").findPath("user.past_experience.normed_titles").isMissingNode()) {
+                                    if (!bNode.get("should").findPath("user.current_experience.titles").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.current_experience.normed_titles").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.past_experience.titles").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.past_experience.normed_titles").isMissingNode()) {
 
 //                                        JsonNode titles = bNode.get("should");
 //                                        BooleanQuery.Builder tbq = new BooleanQuery.Builder();
@@ -224,6 +282,18 @@ public class QueryConvertor {
 //                                        }
 //                                        ret.add(tbq.build());
 
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.languages").isMissingNode()) {
+                                        //TODO: directly return
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.current_experience.company_types").isMissingNode()) {
+                                        //TODO: directly return
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.current_experience.funding_round").isMissingNode()) {
+                                        //TODO: directly return
                                         c++;
                                     }
                                     if (!bNode.get("should").findPath("user.tags.experience_tag").isMissingNode()) {
@@ -252,6 +322,16 @@ public class QueryConvertor {
                                         ret.add(yoebq.build());
                                         c++;
                                     }
+                                    if (!bNode.get("should").findPath("user.current_experience.industries.keyword").isMissingNode()) {
+                                        JsonNode industries = bNode.get("should");
+                                        BooleanQuery.Builder industrybq = new BooleanQuery.Builder();
+                                        for(JsonNode industry : industries) {
+                                            String industryTag = industry.get("term").get("user.current_experience.industries.keyword").get("value").asText();
+                                            industrybq.add(new TermQuery(new Term("industry", industryTag.toLowerCase())), BooleanClause.Occur.SHOULD);
+                                        }
+                                        ret.add(industrybq.build());
+                                        c++;
+                                    }
                                     if (!bNode.get("should").findPath("user.education.education_level.keyword").isMissingNode()) {
                                         JsonNode degrees = bNode.get("should");
                                         if (degrees.size() > 2) {
@@ -266,7 +346,7 @@ public class QueryConvertor {
                                                 if (fieldName.equals("user.education.education_level.keyword")) {
                                                     JsonNode ds = terms.get("user.education.education_level.keyword");
                                                     for (JsonNode d : ds) {
-                                                        degreebq.add(new TermQuery(new Term("degree", d.asText())), BooleanClause.Occur.SHOULD);
+                                                        degreebq.add(new TermQuery(new Term("degree", d.asText().toLowerCase())), BooleanClause.Occur.SHOULD);
                                                     }
                                                 } else if (fieldName.equals("user.tags.business_administration_level.keyword")) {
                                                     continue;
@@ -281,23 +361,47 @@ public class QueryConvertor {
                                         c++;
                                     }
                                     if (!bNode.get("should").findPath("user.current_experience.company_id").isMissingNode() ||
-                                        !bNode.get("should").findPath("user.past_experience.company_id").isMissingNode()) {
-                                        JsonNode companyIds = bNode.get("should");
-                                        BooleanQuery.Builder cibq = new BooleanQuery.Builder();
-                                        if (!companyIds.findPath("user.current_experience.company_id").isMissingNode()) {
-                                            for (JsonNode ci : companyIds.findPath("user.current_experience.company_id")) {
-                                                cibq.add(new TermQuery(new Term("cic", ci.asText())), BooleanClause.Occur.SHOULD);
+                                        !bNode.get("should").findPath("user.past_experience.company_id").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.current_experience.companies").isMissingNode() ||
+                                        !bNode.get("should").findPath("user.past_experience.companies").isMissingNode()) {
+                                        BooleanQuery.Builder cbq = new BooleanQuery.Builder();
+                                        for (JsonNode company : bNode.get("should")) {
+                                            if (!company.findPath("user.current_experience.company_id").isMissingNode()) {
+                                                for (JsonNode ci : company.findPath("user.current_experience.company_id")) {
+                                                    cbq.add(new TermQuery(new Term("cic", ci.asText())), BooleanClause.Occur.SHOULD);
+                                                }
+                                            } else if (!company.findPath("user.past_experience.company_id").isMissingNode()) {
+                                                for (JsonNode ci : company.findPath("user.past_experience.company_id")) {
+                                                    cbq.add(new TermQuery(new Term("cip", ci.asText())), BooleanClause.Occur.SHOULD);
+                                                }
+                                            } else if (!company.findPath("user.current_experience.companies").isMissingNode()) {
+                                                //TODO: 加上对公司的文本支持
+                                            } else if (!company.findPath("user.past_experience.companies").isMissingNode()) {
+                                                //TODO: 加上对公司的文本支持
+                                            } else {
+                                                logger.warn("unexpected field found in company node: " + company.toString());
                                             }
                                         }
-                                        if (!companyIds.findPath("user.past_experience.company_id").isMissingNode()) {
-                                            for (JsonNode ci : companyIds.findPath("user.past_experience.company_id")) {
-                                                cibq.add(new TermQuery(new Term("cip", ci.asText())), BooleanClause.Occur.SHOULD);
+                                        ret.add(cbq.build());
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.education.schools").isMissingNode() ||
+                                            !bNode.get("should").findPath("user.education.education_id").isMissingNode()) {
+                                        BooleanQuery.Builder ebq = new BooleanQuery.Builder();
+                                        for (JsonNode education : bNode.get("should")) {
+                                            //TODO: add education field
+                                            if (!education.findPath("user.education.schools").isMissingNode()) {
+                                                ebq.add(new TermQuery(new Term("compound", education.findPath("user.education.schools").get("query").asText().toLowerCase())), BooleanClause.Occur.SHOULD);
+                                            } else if (!education.findPath("user.education.education_id").isMissingNode()) {
+                                                for (JsonNode eid : education.findPath("user.past_experience.company_id")) {
+                                                    ebq.add(new TermQuery(new Term("compound", eid.asText())), BooleanClause.Occur.SHOULD);
+                                                }
+                                            } else {
+                                                logger.warn("unexpected field found in education node: " + education.toString());
                                             }
                                         }
-                                        if (companyIds.size() > 2) {
-                                            logger.warn("too many fields in company id json:" + companyIds.toString());
-                                        }
-                                        ret.add(cibq.build());
+                                        //TODO:
+//                                        ret.add(ebq.build());
                                         c++;
                                     }
                                     if (!bNode.get("should").findPath("user.education.majors").isMissingNode()) {
@@ -361,6 +465,60 @@ public class QueryConvertor {
                                         ret.add(diversitybq.build());
                                         c++;
                                     }
+                                    if (!bNode.get("should").findPath("user.tags.current_company_start_date").isMissingNode()) {
+                                        JsonNode dateRanges = bNode.get("should");
+                                        BooleanQuery.Builder dateRangebq = new BooleanQuery.Builder();
+                                        for(JsonNode dateRange : dateRanges) {
+                                            JsonNode dr = dateRange.get("range").get("user.tags.current_company_start_date");
+                                            String fromDate = dr.get("from").isNull() ? "" : dr.get("from").asText();
+                                            String toDate = dr.get("to").isNull() ? "" : dr.get("to").asText();
+                                            int lowerLimit = getFirstNum(toDate);
+                                            int upperLimit = getFirstNum(fromDate);
+                                            if (lowerLimit >= 0 & upperLimit > lowerLimit) {
+                                                dateRangebq.add(IntPoint.newRangeQuery("mcc", lowerLimit, upperLimit), BooleanClause.Occur.SHOULD);
+                                            } else if (lowerLimit > 0 & upperLimit == 0) {
+                                                dateRangebq.add(IntPoint.newRangeQuery("mcc", lowerLimit, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
+                                            } else {
+                                                logger.warn("unexpected start date company range node: " + dateRange.toString());
+                                            }
+                                        }
+                                        ret.add(dateRangebq.build());
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.tags.current_title_start_date").isMissingNode()) {
+                                        JsonNode dateRanges = bNode.get("should");
+                                        BooleanQuery.Builder dateRangebq = new BooleanQuery.Builder();
+                                        for(JsonNode dateRange : dateRanges) {
+                                            JsonNode dr = dateRange.get("range").get("user.tags.current_title_start_date");
+                                            String fromDate = dr.get("from").isNull() ? "" : dr.get("from").asText();
+                                            String toDate = dr.get("to").isNull() ? "" : dr.get("to").asText();
+                                            int lowerLimit = getFirstNum(toDate);
+                                            int upperLimit = getFirstNum(fromDate);
+                                            if (lowerLimit >= 0 & upperLimit > lowerLimit) {
+                                                dateRangebq.add(IntPoint.newRangeQuery("mcr", lowerLimit * 12, upperLimit * 12), BooleanClause.Occur.SHOULD);
+                                            } else if (lowerLimit > 0 & upperLimit == 0) {
+                                                dateRangebq.add(IntPoint.newRangeQuery("mcr", lowerLimit * 12, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
+                                            } else {
+                                                logger.warn("unexpected start date role range node: " + dateRange.toString());
+                                            }
+                                        }
+                                        ret.add(dateRangebq.build());
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.publication.citations").isMissingNode()) {
+                                        //TODO: directly return
+//                                        return null;
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.publication.i10_index").isMissingNode()) {
+                                        //TODO: directly return
+//                                        return null;
+                                        c++;
+                                    }
+                                    if (!bNode.get("should").findPath("user.normed_skills").isMissingNode()) {
+                                        //TODO:
+                                        c++;
+                                    }
                                     if (c == 0) {
                                         logger.warn("unexpected should filter:" + bNode.toString());
                                     } else if (c > 1) {
@@ -378,22 +536,41 @@ public class QueryConvertor {
                                         }
                                         c++;
                                     }
-                                    if (!bNode.get("must_not").findPath("user.current_experience.companies").isMissingNode()) {
+                                    if (!bNode.get("must_not").findPath("user.current_experience.companies").isMissingNode() ||
+                                        !bNode.get("must_not").findPath("user.current_experience.titles").isMissingNode() ||
+                                        !bNode.get("must_not").findPath("user.current_experience.normed_titles").isMissingNode()) {
                                         JsonNode currentPositions = bNode.get("must_not");
-                                        int k = currentPositions.size();
-                                        if (!currentPositions.findPath("user.current_experience.companies").isMissingNode()) {
-                                            QueryBuilder queryBuilder = new QueryBuilder(analyzer);
-                                            excludebq.add(queryBuilder.createPhraseQuery("compound", currentPositions.findPath("user.current_experience.companies").get("query").asText()), BooleanClause.Occur.MUST_NOT);
-                                            excludeCount++;
-                                            k --;
+                                        for (JsonNode currentPosition : currentPositions) {
+                                            if (!currentPosition.findPath("user.current_experience.companies").isMissingNode()) {
+                                                QueryBuilder queryBuilder = new QueryBuilder(analyzer);
+                                                excludebq.add(queryBuilder.createPhraseQuery("compound", currentPosition.findPath("user.current_experience.companies").get("query").asText()), BooleanClause.Occur.MUST_NOT);
+                                                excludeCount++;
+                                            } else if (!currentPosition.findPath("user.current_experience.titles").isMissingNode()) {
+                                                //TODO: correct field name - current titles 排除指定title
+//                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(currentPosition.findPath("user.current_experience.titles").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+                                            } else if (!currentPosition.findPath("user.current_experience.normed_titles").isMissingNode()) {
+                                                //TODO: correct field name - current titles 排除指定normed title
+//                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(currentPosition.findPath("user.current_experience.titles").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+                                            } else {
+                                                logger.warn("unexpected must not currentPosition phrase match: " + currentPosition.toString());
+                                            }
                                         }
-                                        //TODO: correct field name - current titles
-                                        if (!currentPositions.findPath("user.current_experience.titles").isMissingNode()) {
-//                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(currentPositions.findPath("user.current_experience.titles").get("query").asText())), BooleanClause.Occur.MUST_NOT);
-                                            k--;
-                                        }
-                                        if (k != 0) {
-                                            logger.warn("unexpected must not phrase match: " + currentPositions.toString());
+                                        c++;
+                                    }
+                                    if (!bNode.get("must_not").findPath("user.past_experience.companies").isMissingNode() ||
+                                        !bNode.get("must_not").findPath("user.past_experience.titles").isMissingNode()) {
+                                        JsonNode pastPositions = bNode.get("must_not");
+                                        for (JsonNode pastPosition : pastPositions) {
+                                            if (!pastPosition.findPath("user.past_experience.companies").isMissingNode()) {
+                                                QueryBuilder queryBuilder = new QueryBuilder(analyzer);
+                                                excludebq.add(queryBuilder.createPhraseQuery("compound", pastPosition.findPath("user.past_experience.companies").get("query").asText()), BooleanClause.Occur.MUST_NOT);
+                                                excludeCount++;
+                                            } else if (!pastPosition.findPath("user.past_experience.titles").isMissingNode()) {
+                                                //TODO: correct field name - past titles
+//                                            excludeCompanybq.add(new PhraseQuery("compound", split2Array(pastPosition.findPath("user.past_experience.titles").get("query").asText())), BooleanClause.Occur.MUST_NOT);
+                                            } else {
+                                                logger.warn("unexpected must not pastPosition phrase match: " + pastPosition.toString());
+                                            }
                                         }
                                         c++;
                                     }
@@ -408,8 +585,42 @@ public class QueryConvertor {
                                             k --;
                                         }
                                         if (k != 0) {
-                                            logger.warn("unexpected must not term match: " + currentCompanyIds.toString());
+                                            logger.warn("unexpected must not currentCompanyIds term match: " + currentCompanyIds.toString());
                                         }
+                                        c++;
+                                    }
+                                    if (!bNode.get("must_not").findPath("user.past_experience.company_id").isMissingNode()) {
+                                        JsonNode pastCompanyIds = bNode.get("must_not");
+                                        int k = pastCompanyIds.size();
+                                        if (!pastCompanyIds.findPath("user.past_experience.company_id").isMissingNode()) {
+                                            for (JsonNode cip : pastCompanyIds.findPath("user.past_experience.company_id")) {
+                                                excludebq.add(new TermQuery(new Term("cip", cip.asText())), BooleanClause.Occur.MUST_NOT);
+                                                excludeCount++;
+                                            }
+                                            k --;
+                                        }
+                                        if (k != 0) {
+                                            logger.warn("unexpected must not pastCompanyIds term match: " + pastCompanyIds.toString());
+                                        }
+                                        c++;
+                                    }
+                                    if (!bNode.get("must_not").findPath("user.current_experience.industries.keyword").isMissingNode()) {
+                                        JsonNode industries = bNode.get("must_not");
+                                        for(JsonNode industry : industries) {
+                                            String industryTag = industry.get("term").get("user.current_experience.industries.keyword").get("value").asText();
+                                            excludebq.add(new TermQuery(new Term("industry", industryTag.toLowerCase())), BooleanClause.Occur.MUST_NOT);
+                                            excludeCount++;
+                                        }
+                                        c++;
+                                    }
+                                    if (!bNode.get("must_not").findPath("user.reviewed_skills").isMissingNode() ||
+                                        !bNode.get("must_not").findPath("user.normed_skills").isMissingNode()) {
+                                        //TODO: 排除指定skill
+                                        c++;
+                                    }
+                                    if (!bNode.get("must_not").findPath("user.location.location_value").isMissingNode() ||
+                                            !bNode.get("must_not").findPath("user.location.continent.keyword").isMissingNode()) {
+                                        //TODO: 排除指定skill
                                         c++;
                                     }
                                     if (!bNode.get("must_not").findPath("user.education.schools").isMissingNode()) {
@@ -430,6 +641,10 @@ public class QueryConvertor {
                                                 logger.warn("unexpected business administration level node: " + bal.toString());
                                             }
                                         }
+                                        c++;
+                                    }
+                                    if (!bNode.get("must_not").findPath("user.global_search").isMissingNode()) {
+                                        //TODO: handle compound text exclude match
                                         c++;
                                     }
                                     if (c == 0) {
@@ -468,7 +683,21 @@ public class QueryConvertor {
                             //TODO: handle boost later
 //                            tsbq.add(new PhraseQuery("cc", split2Array(match.get("match_phrase").get("user.title_skill_search").get("query").asText())), BooleanClause.Occur.SHOULD);
 
-                        } else if (!match.findPath("user.tags.has_contact").isMissingNode() || !match.findPath("user.tags.has_personal_email").isMissingNode()) {
+                        } else if (!match.findPath("user.tags.has_contact").isMissingNode() ||
+                                   !match.findPath("user.tags.has_personal_email").isMissingNode()) {
+                            //TODO:
+                        } else if (!match.findPath("user.tags.race_confidence").isMissingNode()) {
+                            //TODO:
+                        } else if (match.has("exists") && match.get("exists").get("field").asText().equals("user.healthcare.npi_number") && getFieldsCount(match.get("exists")) == 2) {
+                            //TODO:
+                        } else if (match.has("exists") && match.get("exists").get("field").asText().equals("user.social_links.medical_board_url") && getFieldsCount(match.get("exists")) == 2) {
+                            //TODO:
+                        } else if (match.has("exists") && match.get("exists").get("field").asText().equals("user.social_links.doximity_url") && getFieldsCount(match.get("exists")) == 2) {
+                            //TODO:
+                        } else if (match.has("exists") && match.get("exists").get("field").asText().equals("user.social_links.ratemd_url") && getFieldsCount(match.get("exists")) == 2) {
+                            //TODO:
+                        } else if (match.has("exists") && match.get("exists").get("field").asText().equals("user.social_links.healthgrades_url") && getFieldsCount(match.get("exists")) == 2) {
+                            //TODO:
                         } else {
                             logger.warn("unknown should node: " + filterNode.toString());
                         }
@@ -486,6 +715,13 @@ public class QueryConvertor {
                             }
                         } else if (!mn.findPath("user.tags.has_personal_email").isMissingNode()) {
                             continue;
+                        } else if (!mn.findPath("user.location.location_value").isMissingNode()) {
+                            //TODO: 排除指定location
+                            continue;
+                        } else if (!mn.findPath("user.location.continent.keyword").isMissingNode() ||
+                                   !mn.findPath("user.location.country.keyword").isMissingNode()) {
+                            //TODO: 排除指定location
+                            continue;
                         } else {
                             logger.warn("unknown must_not node: " + mn.toString());
                         }
@@ -495,7 +731,7 @@ public class QueryConvertor {
             Iterator<String> fn = boolNode.fieldNames();
             while (fn.hasNext()) {
                 String n = fn.next();
-                if (!n.equals("filter") && !n.equals("must_not") && !n.equals("should") && !n.equals("adjust_pure_negative") && !n.equals("boost")) {
+                if (!n.equals("must") && !n.equals("filter") && !n.equals("must_not") && !n.equals("should") && !n.equals("adjust_pure_negative") && !n.equals("boost")) {
                     logger.warn("unknown field in bool node: " + n);
                 }
             }
@@ -518,6 +754,32 @@ public class QueryConvertor {
         int ret = 0;
         while (it.hasNext()) {
             ret += (it.next() != null ? 1 : 0);
+        }
+        return ret;
+    }
+
+    private static int getFirstNum(String str) {
+        if (str == null || str.length() == 0) {
+            return 0;
+        }
+
+        boolean metNum = false;
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < str.length(); i++){
+            if(str.charAt(i) >= 48 && str.charAt(i) <= 57){
+                sb.append(str.charAt(i));
+                metNum = true;
+            } else {
+                if (metNum) {
+                    break;
+                }
+            }
+        }
+        int ret = 0;
+        try {
+            ret = Integer.parseInt(sb.toString());
+        } catch(Exception e) {
+            logger.warn("fail to parse ");
         }
         return ret;
     }
@@ -545,5 +807,13 @@ public class QueryConvertor {
             logger.warn(response, e);
         }
         return null;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(getFirstNum("now-48M/M"));
+        System.out.println(getFirstNum("now-48M/M87g"));
+        System.out.println(getFirstNum("48M/M5"));
+        System.out.println(getFirstNum("6M"));
+        System.out.println(getFirstNum(""));
     }
 }

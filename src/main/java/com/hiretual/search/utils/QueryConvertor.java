@@ -809,6 +809,17 @@ public class QueryConvertor {
         return null;
     }
 
+    public static JsonNode extractESQuery(JsonNode query){
+        JsonNode esQuery=query.get("esQuery");
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            return mapper.readTree(esQuery.asText());
+        } catch(Exception e) {
+            logger.warn("fail to extarct es query", e);
+        }
+        return null;
+    }
+
     public static void main(String[] args) {
         System.out.println(getFirstNum("now-48M/M"));
         System.out.println(getFirstNum("now-48M/M87g"));

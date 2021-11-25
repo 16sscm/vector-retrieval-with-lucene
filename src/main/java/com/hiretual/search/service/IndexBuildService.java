@@ -118,69 +118,72 @@ public class IndexBuildService {
 		doc.add(field);
 	}
 
-	public void addDocument(List<Resume> resumes) {
-		int count = 0;
+	public void addDocument(Resume resume){
+		
+		Document doc = new Document();
+
+		addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
+
+		addStringIntoDoc(doc, "degree", resume.getDegree(), Field.Store.NO);
+
+		addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
+
+		addNumericIntoDoc(doc, "score", resume.isHasPersonalEmail() ? resume.getAvailability() + 1000 : resume.getAvailability());
+
+		addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
+
+		addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
+
+		addIntPointIntoDoc(doc, "divWoman", resume.isDivWoman() ? 1 : 0);
+		addIntPointIntoDoc(doc, "divBlack", resume.isDivBlack() ? 1 : 0);
+		addIntPointIntoDoc(doc, "divHispanic", resume.isDivHispanic() ? 1 : 0);
+		addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
+		addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
+		addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
+		addIntPointIntoDoc(doc, "hasPersonalEmail", resume.isHasPersonalEmail() ? 1 : 0);
+		addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0); //TODO: need data support
+		addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
+
+		addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
+		addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
+		addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
+		addStringIntoDoc(doc, "nation", resume.getLocNation(), Field.Store.NO);
+		addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
+		addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO);;
+
+		addSetStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
+
+		addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
+		addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
+
+		Field distanceField =
+				new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
+		doc.add(distanceField);
+
+		
+
+		if(resume.getEmbedding()==null){
+			logger.error("fail to set embedding ,request count : "+requestCount);
+		}
+		
+		jedisUtils.set(resume.getUid(), resume.getEmbedding());
+		
+		
+		// logger.info("set uid->vector to pika,uid:"+resume.getUid());
+		try {
+			writer.addDocument(doc);
+		
+		} catch (IOException e) {
+			logger.error("fail to add document: " + resume, e);
+		}
+	}
+	public void addDocs(List<Resume> resumes) {
+		
 		requestCount++;
 		for (Resume resume : resumes) {
-			count++;
-			Document doc = new Document();
-
-			addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
-
-			addStringIntoDoc(doc, "degree", resume.getDegree(), Field.Store.NO);
-
-			addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
-
-			addNumericIntoDoc(doc, "score", resume.isHasPersonalEmail() ? resume.getAvailability() + 1000 : resume.getAvailability());
-
-			addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
-
-			addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
-
-			addIntPointIntoDoc(doc, "divWoman", resume.isDivWoman() ? 1 : 0);
-			addIntPointIntoDoc(doc, "divBlack", resume.isDivBlack() ? 1 : 0);
-			addIntPointIntoDoc(doc, "divHispanic", resume.isDivHispanic() ? 1 : 0);
-			addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
-			addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
-			addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
-			addIntPointIntoDoc(doc, "hasPersonalEmail", resume.isHasPersonalEmail() ? 1 : 0);
-			addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0); //TODO: need data support
-			addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
-
-			addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
-			addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
-			addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
-			addStringIntoDoc(doc, "nation", resume.getLocNation(), Field.Store.NO);
-			addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
-			addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO);;
-
-			addSetStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
-			addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
-			addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
-
-			addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
-			addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
-
-			Field distanceField =
-					new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
-			doc.add(distanceField);
-
-			
-	
-			if(resume.getEmbedding()==null){
-				logger.error("fail to set embedding ,request count : "+requestCount+",count:"+count+",resume: " + resume);
-			}
-			
-			jedisUtils.set(resume.getUid(), resume.getEmbedding());
-			
-			
-			// logger.info("set uid->vector to pika,uid:"+resume.getUid());
-			try {
-				writer.addDocument(doc);
-			
-			} catch (IOException e) {
-				logger.error("fail to add document: " + resume, e);
-			}
+			addDocument(resume);
 		}
 		logger.info("add finish,num:"+resumes.size()+",request count:"+requestCount);
 

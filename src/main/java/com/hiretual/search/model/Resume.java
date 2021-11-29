@@ -19,7 +19,15 @@ public class Resume {
     private int availability;
     // always display the candidates whose personal email are stored first
     private boolean hasPersonalEmail;
-    private String degree;
+    private boolean hasContact;
+    private boolean needSponsorship;
+    private Set<String> eduDegrees;
+    private Set<String> eduLevels;
+    private Set<String> eduBusinessAdmLevels;
+    private Set<String> eduMajors;
+    private Set<String> eduSchoolNames;
+    private Set<String> eduSchoolIds;
+    private int itRankLevel;
     private String yoe;
     // count in months
     private int monthsCurrentCompany;
@@ -31,31 +39,57 @@ public class Resume {
     private boolean divVeteran;
     private boolean divNative;
     private boolean divAsian;
-    private boolean needSponsorship;
+    // company fields
     private String companyCurrent;
     private String companyIdCurrent;
+    private Set<String> companySizeCurrent;
     private Set<String> companiesPast;
     private Set<String> companyIdsPast;
     private Set<String> industries;
+    // for must_not filters
+    private Set<String> titlesCurrent;
+    private Set<String> normedTitlesCurrent;
+    private Set<String> titlesPast;
+    private Set<String> normedTitlesPast;
+    private Set<String> normedSkills;
+    private Set<String> reviewedSkills;
+    // location
     private String locRaw;
+    private String locFmt;
+    private String locType;
     private String locContinent;
     private String locNation;
     private String locState;
     private String locCity;
     private double locLat;
     private double locLon;
-    // user certifications, company name, position summary, position title,
-    // education degree, education description, education majors, school name,
-    // personal highlight, expertise and languages and skills for info_tech,
-    // languages, normalized skills, title and issuer and description of patents,
-    // title and description of projects, organization and description of publications
+    // user certifications, titles of current and past positions, personal highlight,
+    // languages, reviewed skills, security_clearance(absence)
+    private String titleSkill;
+    // user certifications,
+    // company names, summaries and titles of current and past positions,
+    // degree, description, majors and school names of educations
+    // personal highlight,
+    // expertise, languages and skills for info_tech,
+    // languages, normalized skills,
+    // title, issuer and description of patents,
+    // title and description of projects,
+    // title, organization and description of publications
     private String compoundInfo;
     private float[] embedding;
 
     public Resume(String uid,
                   int availability,
                   boolean hasPersonalEmail,
-                  String degree,
+                  boolean hasContact,
+                  boolean needSponsorship,
+                  Set<String> eduDegrees,
+                  Set<String> eduLevels,
+                  Set<String> eduBusinessAdmLevels,
+                  Set<String> eduMajors,
+                  Set<String> eduSchoolNames,
+                  Set<String> eduSchoolIds,
+                  int itRankLevel,
                   String yoe,
                   int monthsCurrentCompany,
                   int monthsCurrentRole,
@@ -65,25 +99,42 @@ public class Resume {
                   boolean divVeteran,
                   boolean divNative,
                   boolean divAsian,
-                  boolean needSponsorship,
                   String companyCurrent,
                   String companyIdCurrent,
+                  Set<String> companySizeCurrent,
                   Set<String> companiesPast,
                   Set<String> companyIdsPast,
                   Set<String> industries,
+                  Set<String> titlesCurrent,
+                  Set<String> normedTitlesCurrent,
+                  Set<String> titlesPast,
+                  Set<String> normedTitlesPast,
+                  Set<String> normedSkills,
+                  Set<String> reviewedSkills,
                   String locRaw,
+                  String locFmt,
+                  String locType,
                   String locContinent,
                   String locNation,
                   String locState,
                   String locCity,
                   double locLat,
                   double locLon,
+                  String titleSkill,
                   String compoundInfo,
                   float[] embedding) {
         this.uid = uid;
         this.availability = availability;
         this.hasPersonalEmail = hasPersonalEmail;
-        this.degree = degree;
+        this.hasContact = hasContact;
+        this.needSponsorship = needSponsorship;
+        this.eduDegrees = eduDegrees;
+        this.eduLevels = eduLevels;
+        this.eduBusinessAdmLevels = eduBusinessAdmLevels;
+        this.eduMajors = eduMajors;
+        this.eduSchoolNames = eduSchoolNames;
+        this.eduSchoolIds = eduSchoolIds;
+        this.itRankLevel = itRankLevel;
         this.yoe = yoe;
         this.monthsCurrentCompany = monthsCurrentCompany;
         this.monthsCurrentRole = monthsCurrentRole;
@@ -93,19 +144,28 @@ public class Resume {
         this.divVeteran = divVeteran;
         this.divNative = divNative;
         this.divAsian = divAsian;
-        this.needSponsorship = needSponsorship;
         this.companyCurrent = companyCurrent;
         this.companyIdCurrent = companyIdCurrent;
+        this.companySizeCurrent = companySizeCurrent;
         this.companiesPast = companiesPast;
         this.companyIdsPast = companyIdsPast;
         this.industries = industries;
+        this.titlesCurrent = titlesCurrent;
+        this.normedTitlesCurrent = normedTitlesCurrent;
+        this.titlesPast = titlesPast;
+        this.normedTitlesPast = normedTitlesPast;
+        this.normedSkills = normedSkills;
+        this.reviewedSkills = reviewedSkills;
         this.locRaw = locRaw;
+        this.locFmt = locFmt;
+        this.locType = locType;
         this.locContinent = locContinent;
         this.locNation = locNation;
         this.locState = locState;
         this.locCity = locCity;
         this.locLat = locLat;
         this.locLon = locLon;
+        this.titleSkill = titleSkill;
         this.compoundInfo = compoundInfo;
         this.embedding = embedding;
     }
@@ -113,8 +173,10 @@ public class Resume {
     public Resume(JsonNode jsonNode) {
         try {
             String highlight = "";
-            StringBuilder skillInfo = new StringBuilder();
+            StringBuilder normedSkillInfo = new StringBuilder();
+            StringBuilder reviewedSkillInfo = new StringBuilder();
             StringBuilder itInfo = new StringBuilder();
+            StringBuilder clearanceInfo = new StringBuilder();
             if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.BASIC) && !JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.ANALYTICS)) {
                 JsonNode basic = jsonNode.get(ResumeField.BASIC);
                 JsonNode analytics = jsonNode.get(ResumeField.ANALYTICS);
@@ -123,44 +185,65 @@ public class Resume {
 
                 highlight = JsonResumeParseUtils.getStringFieldFromJsonNode(basic, ResumeField.HIGHLIGHT, "");
 
-                this.hasPersonalEmail = true; //TODO: no data support
-                this.needSponsorship = false; //TODO: no data support
+                this.hasPersonalEmail = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.HAS_PERSONAL_EMAIL);
+                this.hasContact = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.HAS_CONTACT);
+                this.needSponsorship = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.NEED_VISA_SPONSORSHIP);
 
                 this.availability = JsonResumeParseUtils.getIntFieldFromJsonNode(analytics, ResumeField.AVAILABILITY);
+                this.yoe = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EXPERIENCE, "");
 
                 this.divWoman = ResumeField.FEMALE.equals(JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.GENDER, ""));
-
-                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.RACE)) {
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.RACE)) {
                     String race = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.RACE, "");
                     this.divHispanic = race.contains(ResumeField.HISPANIC);
                     this.divAsian = race.contains(ResumeField.ASIAN);
                     this.divBlack = race.contains(ResumeField.BLACK) || race.contains(ResumeField.AFRICAN);
                     this.divNative = race.contains(ResumeField.NATIVE);
                 }
-
                 this.divVeteran = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.VETERAN);
-                this.degree = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EDUCATION);
-                this.yoe = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EXPERIENCE);
 
-                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.SKILL)) {
+                this.normedSkills = new HashSet<>();
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.SKILL)) {
                     JsonNode skills = analytics.get(ResumeField.SKILL);
                     for (JsonNode skill : skills) {
-                        skillInfo.append(skill.asText()).append(',');
+                        this.normedSkills.add(skill.asText().toLowerCase());
+                        normedSkillInfo.append(skill.asText()).append(',');
+                    }
+                }
+                // TODO: switch to real reviewed skills later, no data support
+                this.reviewedSkills = new HashSet<>();
+                if (!JsonResumeParseUtils.isJsonNodeNull(basic, ResumeField.SKILL)) {
+                    JsonNode skills = basic.get(ResumeField.SKILL);
+                    for (JsonNode skill : skills) {
+                        this.reviewedSkills.add(skill.asText().toLowerCase());
+                        reviewedSkillInfo.append(skill.asText()).append(',');
                     }
                 }
 
-                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.INDUSTRY)) {
-                    this.industries = new HashSet<>();
+                this.industries = new HashSet<>();
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.INDUSTRY)) {
                     JsonNode industries = analytics.get(ResumeField.INDUSTRY);
                     for (JsonNode industry : industries) {
-                        this.industries.add(industry.asText());
+                        this.industries.add(industry.asText().toLowerCase());
                     }
                 }
 
-                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.NORM_LOCATION)) {
+                this.companySizeCurrent = new HashSet<>();
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.POSITION_CURRENT)) {
+                    JsonNode currentPosition = analytics.get(ResumeField.INDUSTRY);
+                    if (!currentPosition.isEmpty() && !JsonResumeParseUtils.isJsonNodeNull(currentPosition, ResumeField.POSITION_COMPANY_SIZE)) {
+                        for (JsonNode companySize : currentPosition.get(ResumeField.POSITION_COMPANY_SIZE)) {
+                            this.companySizeCurrent.add(companySize.asText());
+                        }
+                    }
+                }
+
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.NORM_LOCATION)) {
                     JsonNode loc = analytics.get(ResumeField.NORM_LOCATION);
                     if (!loc.isEmpty()) {
-                        this.locRaw = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.LOCATION_FMT, "");
+                        this.locRaw = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.LOCATION_RAW, "");
+                        this.locFmt = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.LOCATION_FMT, "");
+                        this.locType = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.LOCATION_TYPE, "");
                         this.locContinent = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.CONTINENT, "");
                         this.locNation = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.COUNTRY, "");
                         this.locState = JsonResumeParseUtils.getStringFieldFromJsonNode(loc, ResumeField.STATE, "");
@@ -170,26 +253,37 @@ public class Resume {
                     }
                 }
 
-                if (JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.IT_ANALYTICS)) {
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.SECURITY_CLEARANCE)) {
+                    JsonNode clearance = analytics.get(ResumeField.SECURITY_CLEARANCE);
+                    Iterator<Map.Entry<String, JsonNode>> fields = clearance.fields();
+                    while (fields.hasNext()) {
+                        for (JsonNode clearanceValue : fields.next().getValue()) {
+                            clearanceInfo.append(clearanceValue.asText()).append(',');
+                        }
+                    }
+                }
+
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.IT_ANALYTICS)) {
                     JsonNode it = analytics.get(ResumeField.IT_ANALYTICS);
-                    if (JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.LANGUAGE)) {
+                    this.itRankLevel = JsonResumeParseUtils.getIntFieldFromJsonNode(it, ResumeField.IT_ANALYTICS_RANK_LEVEL);
+                    if (!JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.LANGUAGE)) {
                         for (JsonNode language : it.get(ResumeField.LANGUAGE)) {
                             itInfo.append(language.asText()).append(',');
                         }
                     }
-                    if (JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.EXPERTISE_SCORES)) {
+                    if (!JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.EXPERTISE_SCORES)) {
                         Iterator<String> keys = it.get(ResumeField.EXPERTISE_SCORES).fieldNames();
                         while (keys.hasNext()) {
                             itInfo.append(keys.next()).append(',');
                         }
                     }
-                    if (JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.DETAILS)) {
+                    if (!JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.DETAILS)) {
                         JsonNode details = it.get(ResumeField.DETAILS);
-                        if (JsonResumeParseUtils.isJsonNodeNull(details, ResumeField.GITHUB)) {
+                        if (!JsonResumeParseUtils.isJsonNodeNull(details, ResumeField.GITHUB)) {
                             JsonNode github = details.get(ResumeField.GITHUB);
-                            if (JsonResumeParseUtils.isJsonNodeNull(github, ResumeField.SELECTED_REPO)) {
+                            if (!JsonResumeParseUtils.isJsonNodeNull(github, ResumeField.SELECTED_REPO)) {
                                 for (JsonNode repo : github.get(ResumeField.SELECTED_REPO)) {
-                                    if (JsonResumeParseUtils.isJsonNodeNull(repo, ResumeField.EXPERTISE)) {
+                                    if (!JsonResumeParseUtils.isJsonNodeNull(repo, ResumeField.EXPERTISE)) {
                                         Iterator<String> expertises = repo.get(ResumeField.EXPERTISE).fieldNames();
                                         while (expertises.hasNext()) {
                                             itInfo.append(expertises.next()).append(',');
@@ -200,102 +294,164 @@ public class Resume {
                         }
                     }
                 }
+            } else {
+                logger.error("important fields missing: " + jsonNode.toString());
+                return;
             }
 
-            StringBuilder educationInfo = new StringBuilder();
-            if (JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.EDUCATION)) {
-                for (JsonNode education : jsonNode.get(ResumeField.EDUCATION)) {
-                    // //TODO: dedup work may be needed
-                    educationInfo.append(education.get("education_school").asText()).append(',')
-                            .append(education.get("education_major").asText()).append(',')
-                            .append(education.get("education_degree").asText()).append(',')
-                            .append(education.get("education_degree_level").asText()).append(',')
-                            .append(education.get("education_description").asText()).append(',');
-                    if (education.has("normed_education_major")) {
-                        for (JsonNode normalizedMajor : education.get("normed_education_major")) {
-                            educationInfo.append(normalizedMajor.asText()).append(',');
+            this.eduDegrees = new HashSet<>();
+            this.eduLevels = new HashSet<>();
+            this.eduBusinessAdmLevels = new HashSet<>(); // TODO: no data support
+            this.eduMajors = new HashSet<>();
+            this.eduSchoolNames = new HashSet<>();
+            this.eduSchoolIds = new HashSet<>();
+            Set<String> eduDescriptions = new HashSet<>();
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.EDUCATION)) {
+                JsonNode educations = jsonNode.get(ResumeField.EDUCATION);
+                if (!educations.isEmpty()) {
+                    for (JsonNode edu : educations) {
+                        String degree = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_DEGREE, "");
+                        if (!StringUtils.isEmpty(degree)) {
+                            this.eduDegrees.add(degree.toLowerCase());
+                        }
+                        String level = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_LEVEL, "");
+                        if (!StringUtils.isEmpty(level)) {
+                            this.eduLevels.add(level.toLowerCase());
+                        }
+                        String major = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_MAJOR, "");
+                        if (!StringUtils.isEmpty(major)) {
+                            this.eduMajors.add(major.toLowerCase());
+                        }
+                        String schoolName = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_SCHOOL_NAME, "");
+                        if (!StringUtils.isEmpty(schoolName)) {
+                            this.eduSchoolNames.add(schoolName.toLowerCase());
+                        }
+                        String description = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_DESCRIPTION, "");
+                        if (!StringUtils.isEmpty(description)) {
+                            eduDescriptions.add(description);
+                        }
+                        for (JsonNode schoolId : edu.get(ResumeField.EDUCATION_SCHOOL_ID)) {
+                            this.eduSchoolIds.add(schoolId.asText());
                         }
                     }
                 }
             }
-            StringBuilder positionInfo = new StringBuilder();
-            if (jsonNode.has("position")) {
-                this.companiesPast = new HashSet<>();
-                this.companyIdsPast = new HashSet<>();
-                Map<String, Integer> map = new HashMap<>();
-                for (JsonNode position : jsonNode.get("position")) {
-                    String companyName = position.get("position_company_name").asText().toLowerCase();
-                    String companyId = position.has("company_id") ? position.get("company_id").asText() : "";
-                    if (position.get("position_iscurrent").asBoolean()) {
-                        this.companyCurrent = companyName;
-                        this.companyIdCurrent = companyId;
-                        this.monthsCurrentRole = DateUtils.getMonthsFromDate(position.get("position_start_date").asText());
-                    } else {
-                        this.companiesPast.add(companyName);
-                        this.companyIdsPast.add(companyId);
-                    }
+            String educationInfo = String.join(",", this.eduDegrees) + "," + String.join(",", this.eduMajors) + ","
+                    + String.join(",", this.eduSchoolNames) + "," +String.join(",", eduDescriptions);
 
-                    if (map.containsKey(companyName)) {
-                        map.put(companyName, map.get(companyName)
-                                + DateUtils.getMonthsFromDate(position.get("position_start_date").asText(),
-                                position.get("position_end_date").asText()));
-                    } else {
-                        map.put(companyName, DateUtils.getMonthsFromDate(position.get("position_start_date").asText(),
-                                position.get("position_end_date").asText()));
-                    }
-
-                    // //TODO: dedup work may be needed
-                    positionInfo.append(position.get("position_title").asText()).append(',')
-                            .append(position.get("position_company_name").asText()).append(',')
-                            .append(position.get("position_summary").asText()).append(',');
-                    if (position.has("normed_position_title")) {
-                        for (JsonNode normalizedTitle : position.get("normed_position_title")) {
-                            positionInfo.append(normalizedTitle.asText()).append(',');
+            this.companiesPast = new HashSet<>();
+            this.companyIdsPast = new HashSet<>();
+            this.titlesCurrent = new HashSet<>();
+            this.normedTitlesCurrent = new HashSet<>();
+            this.titlesPast = new HashSet<>();
+            this.normedTitlesPast = new HashSet<>();
+            Set<String> positionSummaries = new HashSet<>();
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.POSITION)) {
+                JsonNode positions = jsonNode.get(ResumeField.POSITION);
+                if (!positions.isEmpty()) {
+                    Map<String, Integer> map = new HashMap<>();
+                    for (JsonNode position : positions) {
+                        String companyName = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_COMPANY_NAME, "");
+                        String companyId = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_COMPANY_ID, "");
+                        String summary = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_SUMMARY, "");
+                        String title = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_TITLE, "");
+                        Set<String> nTitles = new HashSet<>();
+                        for (JsonNode nTitle : position.get(ResumeField.POSITION_NORMED_TITLE)) {
+                            nTitles.add(nTitle.asText().toLowerCase());
                         }
+
+                        Boolean isCurrent = JsonResumeParseUtils.getBoolFieldFromJsonNode(position, ResumeField.POSITION_IS_CURRENT);
+                        if (isCurrent && StringUtils.isEmpty(this.companyCurrent)) {
+                            this.companyCurrent = companyName.toLowerCase();
+                            this.companyIdCurrent = companyId;
+                            if (!StringUtils.isEmpty(title)) {
+                                this.titlesCurrent.add(title.toLowerCase());
+                            }
+                            this.normedTitlesCurrent.addAll(nTitles);
+                            this.monthsCurrentRole = DateUtils.getMonthsFromDate(JsonResumeParseUtils.getStringFieldFromJsonNode(position,
+                                    ResumeField.POSITION_START_DATE, ""));
+                        } else if (isCurrent) {
+                            if (!StringUtils.isEmpty(title)) {
+                                this.titlesPast.add(title.toLowerCase());
+                            }
+                            this.normedTitlesPast.addAll(nTitles);
+                        } else {
+                            if (!StringUtils.isEmpty(companyName)) {
+                                this.companiesPast.add(companyName.toLowerCase());
+                            }
+                            if (!StringUtils.isEmpty(companyId)) {
+                                this.companyIdsPast.add(companyId);
+                            }
+                            if (!StringUtils.isEmpty(title)) {
+                                this.titlesPast.add(title.toLowerCase());
+                            }
+                            this.normedTitlesPast.addAll(nTitles);
+                        }
+
+                        if (!StringUtils.isEmpty(summary)) {
+                            positionSummaries.add(summary);
+                        }
+
+                        int offset = 0;
+                        if (map.containsKey(companyName)) {
+                            offset = map.get(companyName);
+                        }
+                        map.put(companyName, offset + DateUtils.getMonthsFromDate(
+                                JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_START_DATE, ""),
+                                JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_END_DATE, "")));
                     }
-                }
-                if (!StringUtils.isEmpty(this.companyCurrent)) {
-                    this.monthsCurrentCompany = map.get(this.companyCurrent);
+                    if (!StringUtils.isEmpty(this.companyCurrent)) {
+                        this.monthsCurrentCompany = map.get(this.companyCurrent);
+                    }
                 }
             }
+            String positionInfo = this.companyCurrent + "," + String.join(",", this.companiesPast) + "," + String.join(",", positionSummaries)
+                    + "," + String.join(",", this.titlesCurrent) + "," +String.join(",", this.titlesPast);
+
             StringBuilder certInfo = new StringBuilder();
-            if (jsonNode.has("certification")) {
-                for (JsonNode certification : jsonNode.get("certification")) {
-                    certInfo.append(certification.get("certification_name").asText()).append(',')
-                            .append(certification.get("certification_authority").asText()).append(',');
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.CERTIFICATION)) {
+                for (JsonNode certification : jsonNode.get(ResumeField.CERTIFICATION)) {
+                    certInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(certification, ResumeField.CERTIFICATION_NAME, "")).append(',')
+                            .append(JsonResumeParseUtils.getStringFieldFromJsonNode(certification, ResumeField.CERTIFICATION_AUTHORITY, "")).append(',');
                 }
             }
+
             StringBuilder languageInfo = new StringBuilder();
-            if (jsonNode.has("language")) {
-                for (JsonNode language : jsonNode.get("language")) {
-                    languageInfo.append(language.get("language_name").asText()).append(',');
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.LANGUAGE)) {
+                for (JsonNode language : jsonNode.get(ResumeField.LANGUAGE)) {
+                    languageInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(language, ResumeField.LANGUAGE_NAME, "")).append(',');
                 }
             }
+
             StringBuilder patentInfo = new StringBuilder();
-            if (jsonNode.has("patent")) {
-                for (JsonNode patent : jsonNode.get("patent")) {
-                    patentInfo.append(patent.get("patent_title").asText()).append(',')
-                              .append(patent.get("patent_issuer").asText()).append(',')
-                              .append(patent.get("patent_description").asText()).append(',');
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.PATENT)) {
+                for (JsonNode patent : jsonNode.get(ResumeField.PATENT)) {
+                    patentInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(patent, ResumeField.PATENT_TITLE, "")).append(',')
+                              .append(JsonResumeParseUtils.getStringFieldFromJsonNode(patent, ResumeField.PATENT_ISSUER, "")).append(',')
+                              .append(JsonResumeParseUtils.getStringFieldFromJsonNode(patent, ResumeField.PATENT_DESCRIPTION, "")).append(',');
                 }
             }
+
             StringBuilder projectInfo = new StringBuilder();
-            if (jsonNode.has("project")) {
-                for (JsonNode project : jsonNode.get("project")) {
-                    projectInfo.append(project.get("project_title").asText()).append(',')
-                               .append(project.get("project_summary").asText()).append(',');
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.PROJECT)) {
+                for (JsonNode project : jsonNode.get(ResumeField.PROJECT)) {
+                    projectInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(project, ResumeField.PROJECT_TITLE, "")).append(',')
+                               .append(JsonResumeParseUtils.getStringFieldFromJsonNode(project, ResumeField.PROJECT_SUMMARY, "")).append(',');
                 }
             }
+
             StringBuilder publicationInfo = new StringBuilder();
-            if (jsonNode.has("publication")) {
-                for (JsonNode publication : jsonNode.get("publication")) {
-                    publicationInfo.append(publication.get("publication_title").asText()).append(',')
-                                   .append(publication.get("publication_organization").asText()).append(',')
-                                   .append(publication.get("publication_description").asText()).append(',');
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.PUBLICATION)) {
+                for (JsonNode publication : jsonNode.get(ResumeField.PUBLICATION)) {
+                    publicationInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(publication, ResumeField.PUBLICATION_TITLE, "")).append(',')
+                                   .append(JsonResumeParseUtils.getStringFieldFromJsonNode(publication, ResumeField.PUBLICATION_ORGANIZATION, "")).append(',')
+                                   .append(JsonResumeParseUtils.getStringFieldFromJsonNode(publication, ResumeField.PUBLICATION_DESCRIPTION, "")).append(',');
                 }
             }
-            this.compoundInfo = highlight + positionInfo + educationInfo + certInfo + itInfo + languageInfo
-                        + skillInfo + patentInfo + projectInfo + publicationInfo;
+            this.titleSkill = certInfo + String.join(",", this.titlesCurrent) + "," + String.join(",", this.titlesPast)
+                        + highlight + languageInfo + clearanceInfo + String.join(",", this.reviewedSkills);
+            this.compoundInfo = certInfo + highlight + positionInfo + educationInfo + itInfo + languageInfo
+                        + patentInfo + projectInfo + publicationInfo + String.join(",", this.normedSkills);
             if (jsonNode.has("embedding")) {
                 this.embedding = new float[IndexBuildService.embeddingDimension];
                 Iterator<JsonNode> arrayIterator = jsonNode.get("embedding").iterator();
@@ -334,14 +490,6 @@ public class Resume {
 
     public void setHasPersonalEmail(boolean hasPersonalEmail) {
         this.hasPersonalEmail = hasPersonalEmail;
-    }
-
-    public String getDegree() {
-        return degree;
-    }
-
-    public void setDegree(String degree) {
-        this.degree = degree;
     }
 
     public String getYoe() {
@@ -536,18 +684,167 @@ public class Resume {
         this.embedding = embedding;
     }
 
+    public boolean isHasContact() {
+        return hasContact;
+    }
+
+    public void setHasContact(boolean hasContact) {
+        this.hasContact = hasContact;
+    }
+
+    public Set<String> getEduDegrees() {
+        return eduDegrees;
+    }
+
+    public void setEduDegrees(Set<String> eduDegrees) {
+        this.eduDegrees = eduDegrees;
+    }
+
+    public Set<String> getEduLevels() {
+        return eduLevels;
+    }
+
+    public void setEduLevels(Set<String> eduLevels) {
+        this.eduLevels = eduLevels;
+    }
+
+    public Set<String> getEduBusinessAdmLevels() {
+        return eduBusinessAdmLevels;
+    }
+
+    public void setEduBusinessAdmLevels(Set<String> eduBusinessAdmLevels) {
+        this.eduBusinessAdmLevels = eduBusinessAdmLevels;
+    }
+
+    public Set<String> getEduMajors() {
+        return eduMajors;
+    }
+
+    public void setEduMajors(Set<String> eduMajors) {
+        this.eduMajors = eduMajors;
+    }
+
+    public Set<String> getEduSchoolNames() {
+        return eduSchoolNames;
+    }
+
+    public void setEduSchoolNames(Set<String> eduSchoolNames) {
+        this.eduSchoolNames = eduSchoolNames;
+    }
+
+    public Set<String> getEduSchoolIds() {
+        return eduSchoolIds;
+    }
+
+    public void setEduSchoolIds(Set<String> eduSchoolIds) {
+        this.eduSchoolIds = eduSchoolIds;
+    }
+
+    public int getItRankLevel() {
+        return itRankLevel;
+    }
+
+    public void setItRankLevel(int itRankLevel) {
+        this.itRankLevel = itRankLevel;
+    }
+
+    public Set<String> getCompanySizeCurrent() {
+        return companySizeCurrent;
+    }
+
+    public void setCompanySizeCurrent(Set<String> companySizeCurrent) {
+        this.companySizeCurrent = companySizeCurrent;
+    }
+
+    public Set<String> getTitlesCurrent() {
+        return titlesCurrent;
+    }
+
+    public void setTitlesCurrent(Set<String> titlesCurrent) {
+        this.titlesCurrent = titlesCurrent;
+    }
+
+    public Set<String> getNormedTitlesCurrent() {
+        return normedTitlesCurrent;
+    }
+
+    public void setNormedTitlesCurrent(Set<String> normedTitlesCurrent) {
+        this.normedTitlesCurrent = normedTitlesCurrent;
+    }
+
+    public Set<String> getTitlesPast() {
+        return titlesPast;
+    }
+
+    public void setTitlesPast(Set<String> titlesPast) {
+        this.titlesPast = titlesPast;
+    }
+
+    public Set<String> getNormedTitlesPast() {
+        return normedTitlesPast;
+    }
+
+    public void setNormedTitlesPast(Set<String> normedTitlesPast) {
+        this.normedTitlesPast = normedTitlesPast;
+    }
+
+    public Set<String> getNormedSkills() {
+        return normedSkills;
+    }
+
+    public void setNormedSkills(Set<String> normedSkills) {
+        this.normedSkills = normedSkills;
+    }
+
+    public Set<String> getReviewedSkills() {
+        return reviewedSkills;
+    }
+
+    public void setReviewedSkills(Set<String> reviewedSkills) {
+        this.reviewedSkills = reviewedSkills;
+    }
+
+    public String getLocFmt() {
+        return locFmt;
+    }
+
+    public void setLocFmt(String locFmt) {
+        this.locFmt = locFmt;
+    }
+
+    public String getLocType() {
+        return locType;
+    }
+
+    public void setLocType(String locType) {
+        this.locType = locType;
+    }
+
+    public String getTitleSkill() {
+        return titleSkill;
+    }
+
+    public void setTitleSkill(String titleSkill) {
+        this.titleSkill = titleSkill;
+    }
+
     @Override
     public String toString() {
-        return "uid:" + uid + "|availability:" + availability + "|hasPersonalEmail:" + hasPersonalEmail
-                + "|degree:" + degree + "|yoe:" + yoe + "|monthsCurrentCompany:" + monthsCurrentCompany
-                + "|monthsCurrentRole:" + monthsCurrentRole + "|divWoman:" + divWoman + "|divBlack:" + divBlack
-                + "|divHispanic:" + divHispanic + "|divVeteran:" + divVeteran + "|divNative:" + divNative
-                + "|divAsian:" + divAsian + "|needSponsorship:" + needSponsorship + "|companyCurrent:" + companyCurrent
-                + "|companyIdCurrent:" + companyIdCurrent + "|companiesPast:" + String.join(",", companiesPast)
-                + "|companyIdsPast:" + String.join(",", companyIdsPast) + "|industries:" + String.join(",", industries)
-                + "|locRaw:" + locRaw + "|locContinent:" + locContinent + "|locNation:" + locNation
-                + "|locState:" + locState + "|locCity:" + locCity + "|locLat:" + locLat + "|locLon:" + locLon
-                + "|compoundInfo:" + compoundInfo;
+        return "uid:" + uid + "|availability:" + availability + "|hasPersonalEmail:" + hasPersonalEmail + "|hasContact:" + hasContact
+                + "|needSponsorship:" + needSponsorship + "|eduDegrees:" + String.join(",", this.eduDegrees)
+                + "|eduLevels:" + String.join(",", this.eduLevels) + "|eduBusinessAdmLevels:" + String.join(",", this.eduBusinessAdmLevels)
+                + "|eduMajors:" + String.join(",", this.eduMajors) + "|eduSchoolNames:" + String.join(",", this.eduSchoolNames)
+                + "|eduSchoolIds:" + String.join(",", this.eduSchoolIds) + "|itRankLevel:" + itRankLevel + "|yoe:" + yoe
+                + "|monthsCurrentCompany:" + monthsCurrentCompany + "|monthsCurrentRole:" + monthsCurrentRole + "|divWoman:" + divWoman
+                + "|divBlack:" + divBlack + "|divHispanic:" + divHispanic + "|divAsian:" + divAsian + "|divNative:" + divNative + "|divVeteran:" + divVeteran
+                + "|companyCurrent:" + companyCurrent + "|companyIdCurrent:" + companyIdCurrent + "|companySizeCurrent:" + companySizeCurrent
+                + "|companiesPast:" + String.join(",", companiesPast) + "|companyIdsPast:" + String.join(",", companyIdsPast)
+                + "|industries:" + String.join(",", industries) + "|titlesCurrent:" + String.join(",", titlesCurrent)
+                + "|normedTitlesCurrent:" + String.join(",", normedTitlesCurrent) + "|titlesPast:" + String.join(",", titlesPast)
+                + "|normedTitlesPast:" + String.join(",", normedTitlesPast) + "|normedSkills:" + String.join(",", normedSkills)
+                + "|reviewedSkills:" + String.join(",", reviewedSkills) + "|locRaw:" + locRaw + "|locFmt:" + locFmt + "|locType:" + locType
+                + "|locContinent:" + locContinent + "|locNation:" + locNation + "|locState:" + locState + "|locCity:" + locCity + "|locLat:"+ locLat
+                + "|locLon:" + locLon + "|titleSkill:" + titleSkill + "|compoundInfo:" + compoundInfo;
     }
 
 }

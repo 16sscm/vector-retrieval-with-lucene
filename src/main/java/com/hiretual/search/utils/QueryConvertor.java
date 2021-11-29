@@ -393,7 +393,7 @@ public class QueryConvertor {
                                             if (!education.findPath("user.education.schools").isMissingNode()) {
                                                 ebq.add(new TermQuery(new Term("compound", education.findPath("user.education.schools").get("query").asText().toLowerCase())), BooleanClause.Occur.SHOULD);
                                             } else if (!education.findPath("user.education.education_id").isMissingNode()) {
-                                                for (JsonNode eid : education.findPath("user.past_experience.company_id")) {
+                                                for (JsonNode eid : education.findPath("user.education.education_id")) {
                                                     ebq.add(new TermQuery(new Term("compound", eid.asText())), BooleanClause.Occur.SHOULD);
                                                 }
                                             } else {

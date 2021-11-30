@@ -293,6 +293,8 @@ public class Resume {
                             }
                         }
                     }
+                } else {
+                    this.itRankLevel = -1;
                 }
             } else {
                 logger.error("important fields missing: " + jsonNode.toString());

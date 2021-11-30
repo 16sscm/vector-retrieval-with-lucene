@@ -33,7 +33,7 @@ public class IndexBuildService {
 	private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
 	private static final String MAX_MEMORY = GlobalPropertyUtils.get("max.memory");
 	private static final String EMBEDDING_DIMENSION = GlobalPropertyUtils.get("embedding.dimension");
-	private static String NUM_IVF_CLUSTER=GlobalPropertyUtils.get("num_ivf_cluster");
+	private static String NUM_IVF_CLUSTER = GlobalPropertyUtils.get("num_ivf_cluster");
 
 	private static Analyzer analyzer = new StandardAnalyzer();
 	private static IndexWriter writer;
@@ -124,14 +124,9 @@ public class IndexBuildService {
 
 		addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
 
-		addStringIntoDoc(doc, "degree", resume.getDegree(), Field.Store.NO);
-
 		addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
 
-		addNumericIntoDoc(doc, "score", resume.isHasPersonalEmail() ? resume.getAvailability() + 1000 : resume.getAvailability());
-
 		addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
-
 		addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
 
 		addIntPointIntoDoc(doc, "divWoman", resume.isDivWoman() ? 1 : 0);
@@ -140,37 +135,54 @@ public class IndexBuildService {
 		addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
 		addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
 		addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
+
 		addIntPointIntoDoc(doc, "hasPersonalEmail", resume.isHasPersonalEmail() ? 1 : 0);
-		addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0); //TODO: need data support
+		addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0);
 		addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
+
+		if (resume.getItRankLevel() >= 0) {
+			addIntPointIntoDoc(doc, "itRankLevel", resume.getItRankLevel());
+		}
+
+		addSetStringIntoDoc(doc, "eduDegree", resume.getEduDegrees(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "eduLevel", resume.getEduLevels(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "eduBAL", resume.getEduBusinessAdmLevels(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "eduMajor", resume.getEduMajors(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "eduSN", resume.getEduSchoolNames(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "eduSI", resume.getEduSchoolIds(), Field.Store.NO);
 
 		addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
 		addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "csc", resume.getCompanySizeCurrent(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "tc", resume.getTitlesCurrent(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "ntc", resume.getNormedTitlesCurrent(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "ns", resume.getNormedSkills(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "rs", resume.getReviewedSkills(), Field.Store.NO);
+
+		addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
+		addTextIntoDoc(doc, "locFMT", resume.getLocFmt(), Field.Store.NO);
+		addStringIntoDoc(doc, "locType", resume.getLocType(), Field.Store.NO);
 		addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
 		addStringIntoDoc(doc, "nation", resume.getLocNation(), Field.Store.NO);
 		addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
 		addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO);;
-
-		addSetStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
-
-		addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
-		addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
-
-		Field distanceField =
-				new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
+		Field distanceField = new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
 		doc.add(distanceField);
 
-		
+		addTextIntoDoc(doc, "ts", resume.getTitleSkill(), Field.Store.NO);
+		addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
 
 		if(resume.getEmbedding()==null){
 			logger.error("fail to set embedding ,request count : "+requestCount);
 		}
 		
 		jedisUtils.set(resume.getUid(), resume.getEmbedding());
-		
-		
+
 		// logger.info("set uid->vector to pika,uid:"+resume.getUid());
 		try {
 			writer.addDocument(doc);

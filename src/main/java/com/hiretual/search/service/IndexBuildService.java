@@ -16,6 +16,10 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
@@ -348,18 +352,43 @@ public class IndexBuildService {
 	public int commitAndCheckIndexSize(){
 		try{
 			writer.commit();
-			IndexReader indexReader=DirectoryReader.open(FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+		    SearchService.lazyInit(writer);
+			IndexReader indexReader=SearchService.indexReader;
 			int maxDoc=indexReader.maxDoc();
 			int numDocs=indexReader.numDocs();
 			if(maxDoc!=numDocs){
 				logger.warn("invalid document num for index,numDocs: "+numDocs+",maxDoc:"+maxDoc);
 			}
 			return numDocs;
-		}catch(Exception e){
+			
+		}catch(IOException e){
 			e.printStackTrace();
 			return -1;
 		}
 
+	}
+	public void deleteResume(Resume resume){
+		String uid=resume.getUid();
+		Query query=new TermQuery(new Term("uid",uid));
+		TopDocs topDocs;
+		try {
+            IndexSearcher indexSearcher = SearchService.indexSearcher;
+			topDocs = indexSearcher.search(query, 1);
+			if(topDocs.totalHits.value!=1){
+				logger.warn("resume do not exist on this index,uid:",uid);
+			}else{
+				int docId=topDocs.scoreDocs[0].doc;
+				long []id=new long[]{docId};
+				clib.FilterKnn_RemoveVectors(id, 1);
+			}
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+			
+		}
+		
+	
+		
 	}
 
 	/**

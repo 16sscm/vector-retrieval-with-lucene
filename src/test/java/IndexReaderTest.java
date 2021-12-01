@@ -12,7 +12,7 @@ import org.junit.Test;
 public class IndexReaderTest {
     String USER_HOME = System.getProperty("user.home");
     private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
-    @Test
+    // @Test
     public void getDocUid() throws IOException{
 
         IndexReader indexReader=DirectoryReader.open(MMapDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));

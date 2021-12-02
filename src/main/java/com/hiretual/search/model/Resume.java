@@ -332,8 +332,10 @@ public class Resume {
                         if (!StringUtils.isEmpty(description)) {
                             eduDescriptions.add(description);
                         }
-                        for (JsonNode schoolId : edu.get(ResumeField.EDUCATION_SCHOOL_ID)) {
-                            this.eduSchoolIds.add(schoolId.asText());
+                        if (edu.hasNonNull(ResumeField.EDUCATION_SCHOOL_ID))  {
+                            for (JsonNode schoolId : edu.get(ResumeField.EDUCATION_SCHOOL_ID)) {
+                                this.eduSchoolIds.add(schoolId.asText());
+                            }
                         }
                     }
                 }
@@ -358,8 +360,10 @@ public class Resume {
                         String summary = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_SUMMARY, "");
                         String title = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_TITLE, "");
                         Set<String> nTitles = new HashSet<>();
-                        for (JsonNode nTitle : position.get(ResumeField.POSITION_NORMED_TITLE)) {
-                            nTitles.add(nTitle.asText().toLowerCase());
+                        if (position.hasNonNull(ResumeField.POSITION_NORMED_TITLE)) {
+                            for (JsonNode nTitle : position.get(ResumeField.POSITION_NORMED_TITLE)) {
+                                nTitles.add(nTitle.asText().toLowerCase());
+                            }
                         }
 
                         Boolean isCurrent = JsonResumeParseUtils.getBoolFieldFromJsonNode(position, ResumeField.POSITION_IS_CURRENT);

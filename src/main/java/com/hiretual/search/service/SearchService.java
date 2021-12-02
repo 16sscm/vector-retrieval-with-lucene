@@ -5,6 +5,8 @@ import com.sun.jna.Pointer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
 import org.slf4j.Logger;
@@ -32,8 +34,8 @@ public class SearchService {
     private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
     private static final String SEARCH_THRESHOLD=GlobalPropertyUtils.get("search.threshold");
     // private static  Analyzer analyzer = new StandardAnalyzer();
-    private static  IndexReader indexReader;
-    private static IndexSearcher indexSearcher;
+    protected static  DirectoryReader indexReader;
+    protected static IndexSearcher indexSearcher;
     private static int searchThreshold;
     private static int numDocs;
     private static CLib clib = CLib.INSTANCE;
@@ -44,9 +46,23 @@ public class SearchService {
         } catch(NumberFormatException e) {
             logger.warn("fail to initialize search threshold for index searcher");
         }
+       
+       
+    }
+    /**
+     * search will change with writer change
+     * @param writer
+     */
+    public static void lazyInit(IndexWriter writer){
         try {
-            logger.info(USER_HOME);
-            indexReader=DirectoryReader.open(MMapDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+            if(indexReader==null){
+                logger.info("init searcher");
+               
+            }else{
+                logger.info("re-open searcher");
+                
+            }
+            indexReader= DirectoryReader.open(writer);
             indexSearcher = new IndexSearcher(indexReader);
             int maxDocNum=indexReader.maxDoc();
             numDocs=indexReader.numDocs();
@@ -57,7 +73,6 @@ public class SearchService {
         } catch (IOException e) {
             logger.warn("fail to initialize index searcher");
         }
-       
     }
      /**
      * search api combine ann and lucene filter
@@ -176,5 +191,6 @@ public class SearchService {
         
        
     }
+
 
 }

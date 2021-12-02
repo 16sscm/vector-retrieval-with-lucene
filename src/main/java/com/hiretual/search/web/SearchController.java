@@ -58,6 +58,22 @@ public class SearchController {
         return "0";
        
     }
+    @RequestMapping(value="/doc/delete", method=RequestMethod.POST, produces="application/json;charset=UTF-8")
+    public String deleteDocument(HttpServletRequest request) {
+        try{
+            JsonNode doc = RequestParser.getPostParameter(request);
+            Resume resume = new Resume(doc);
+
+            indexBuildService.deleteResume(resume);
+           
+        }catch(Exception e){
+            logger.warn("fail to add document",e);
+            return "-1";
+
+        }
+        return "0";
+       
+    }
    
     @RequestMapping(value="/index/merge", method={RequestMethod.GET, RequestMethod.POST})
     public void mergeIndex() {

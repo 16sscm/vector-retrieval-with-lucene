@@ -33,12 +33,13 @@ public class GlobalPropertyUtils {
         return value;
     }
 
-    static {
+     static{
         Properties props = new Properties();
         InputStream in = null;
         try {
             //String path = ClassUtils.getDefaultClassLoader().getResource("").getPath();
             //logger.info("payh = " + path);
+            // System.out.println(System.getProperty("java.class.path"));
             ClassPathResource cpr = new ClassPathResource("global.properties");
             in = cpr.getInputStream();
             props.load(in);

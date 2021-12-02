@@ -14,7 +14,7 @@ public class ClibTest {
 
   String pFlatFile = c_index_dir + GlobalPropertyUtils.get("flat_file");
   String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
-  @Test
+  // @Test
   public void testClib() {
     CLib cLib = CLib.INSTANCE;
     Random r = new Random();

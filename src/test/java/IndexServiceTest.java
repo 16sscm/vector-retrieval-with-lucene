@@ -14,13 +14,13 @@ import org.slf4j.LoggerFactory;
 public class IndexServiceTest {
     Logger logger =
     LoggerFactory.getLogger(IndexServiceTest.class);
-    @Test
+    // @Test
     public void testJedisUtils(){
       JedisUtils jedisUtils=new JedisUtils();
       jedisUtils.get("tiq_205890fb-cc94-4da7-a246-bb1f9ff8df8e");
       
     }
-    @Test
+    // @Test
     public void testResumeJsonStr(){
       FilterResume filterResumes[]=new FilterResume[3];
       filterResumes[0]=new FilterResume("aaa");
@@ -32,7 +32,7 @@ public class IndexServiceTest {
       String filterString=RequestParser.getJsonString(filterQuery);
       System.out.println(str);
     }
-    @Test
+    // @Test
     public void testReader() throws IOException{
        
          IndexBuildService indexBuildService=new IndexBuildService();

@@ -26,6 +26,11 @@ public interface CLib extends Library {
  */
     int FilterKnn_InitLibrary(long dimension,long numIvfCluster,long numPqqSegments,long numPqBitsPerIdx,String pIvfpqFile );
     int FilterKnn_UnInitLibrary();
+    /** remove vectors
+ * @param[in] id vector id
+ * @param[in] n 
+ */
+int  FilterKnn_RemoveVectors(long[]id, long n);
     /**
  * @brief add vectors
  * 

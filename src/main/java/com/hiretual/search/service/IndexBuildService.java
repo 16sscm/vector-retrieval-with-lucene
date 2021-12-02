@@ -80,12 +80,23 @@ public class IndexBuildService {
 		}
 	}
 
+	private void addSetConcatStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
+		if (values == null || values.size() == 0) {
+			return;
+		}
+		String str = String.join(" , ", values);
+		if (!StringUtils.isEmpty(str)) {
+			Field field = new TextField(fieldName, str, isStored);
+			doc.add(field);
+		}
+	}
+
 	private void addSetStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
 		if (values == null || values.size() == 0) {
 			return;
 		}
 		for (String value : values) {
-			if (StringUtils.isEmpty(value)) {
+			if (!StringUtils.isEmpty(value)) {
 				Field field = new StringField(fieldName, value.toLowerCase(), isStored);
 				doc.add(field);
 			}
@@ -98,6 +109,18 @@ public class IndexBuildService {
 		}
 		Field field = new StringField(fieldName, value.toLowerCase(), isStored);
 		doc.add(field);
+	}
+
+	private void addSetTextIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
+		if (values == null || values.size() == 0) {
+			return;
+		}
+		for (String value : values) {
+			if (!StringUtils.isEmpty(value)) {
+				Field field = new TextField(fieldName, value, isStored);
+				doc.add(field);
+			}
+		}
 	}
 
 	private void addTextIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
@@ -144,31 +167,34 @@ public class IndexBuildService {
 			addIntPointIntoDoc(doc, "itRankLevel", resume.getItRankLevel());
 		}
 
-		addSetStringIntoDoc(doc, "eduDegree", resume.getEduDegrees(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "eduDegree", resume.getEduDegrees(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "eduLevel", resume.getEduLevels(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "eduBAL", resume.getEduBusinessAdmLevels(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "eduMajor", resume.getEduMajors(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "eduSN", resume.getEduSchoolNames(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "eduBALK", resume.getEduBusinessAdmLevels(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "eduBAL", resume.getEduBusinessAdmLevels(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "eduMajor", resume.getEduMajors(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "eduSN", resume.getEduSchoolNames(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "eduSI", resume.getEduSchoolIds(), Field.Store.NO);
 
 		addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
 		addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "csc", resume.getCompanySizeCurrent(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "tc", resume.getTitlesCurrent(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "ntc", resume.getNormedTitlesCurrent(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "ns", resume.getNormedSkills(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "rs", resume.getReviewedSkills(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "tc", resume.getTitlesCurrent(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "ntcK", resume.getNormedTitlesCurrent(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "ntc", resume.getNormedTitlesCurrent(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO);
+		addSetStringIntoDoc(doc, "nsK", resume.getNormedSkills(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "ns", resume.getNormedSkills(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "rs", resume.getReviewedSkills(), Field.Store.NO);
 
 		addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
-		addTextIntoDoc(doc, "locFMT", resume.getLocFmt(), Field.Store.NO);
+		addStringIntoDoc(doc, "locFMT", resume.getLocFmt(), Field.Store.NO);
 		addStringIntoDoc(doc, "locType", resume.getLocType(), Field.Store.NO);
 		addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
-		addStringIntoDoc(doc, "nation", resume.getLocNation(), Field.Store.NO);
+		addStringIntoDoc(doc, "country", resume.getLocNation(), Field.Store.NO);
 		addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
 		addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO);;
 		Field distanceField = new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());

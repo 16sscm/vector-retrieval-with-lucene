@@ -402,7 +402,7 @@ public class Resume {
                                 JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_START_DATE, ""),
                                 JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_END_DATE, "")));
                     }
-                    if (!StringUtils.isEmpty(this.companyCurrent)) {
+                    if (!StringUtils.isEmpty(this.companyCurrent) && map.containsKey(this.companyCurrent)) {
                         this.monthsCurrentCompany = map.get(this.companyCurrent);
                     }
                 }

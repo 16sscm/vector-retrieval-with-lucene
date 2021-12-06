@@ -173,6 +173,7 @@ public class Resume {
     public Resume(JsonNode jsonNode) {
         try {
             String highlight = "";
+            String eduL = "";
             StringBuilder normedSkillInfo = new StringBuilder();
             StringBuilder reviewedSkillInfo = new StringBuilder();
             StringBuilder itInfo = new StringBuilder();
@@ -191,6 +192,7 @@ public class Resume {
 
                 this.availability = JsonResumeParseUtils.getIntFieldFromJsonNode(analytics, ResumeField.AVAILABILITY);
                 this.yoe = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EXPERIENCE, "");
+                eduL = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EDUCATION, "");
 
                 this.divWoman = ResumeField.FEMALE.equals(JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.GENDER, ""));
                 if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.RACE)) {
@@ -206,7 +208,7 @@ public class Resume {
                 if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.SKILL)) {
                     JsonNode skills = analytics.get(ResumeField.SKILL);
                     for (JsonNode skill : skills) {
-                        this.normedSkills.add(skill.asText().toLowerCase());
+                        this.normedSkills.add(skill.asText());
                         normedSkillInfo.append(skill.asText()).append(',');
                     }
                 }
@@ -215,7 +217,7 @@ public class Resume {
                 if (!JsonResumeParseUtils.isJsonNodeNull(basic, ResumeField.SKILL)) {
                     JsonNode skills = basic.get(ResumeField.SKILL);
                     for (JsonNode skill : skills) {
-                        this.reviewedSkills.add(skill.asText().toLowerCase());
+                        this.reviewedSkills.add(skill.asText());
                         reviewedSkillInfo.append(skill.asText()).append(',');
                     }
                 }
@@ -224,13 +226,13 @@ public class Resume {
                 if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.INDUSTRY)) {
                     JsonNode industries = analytics.get(ResumeField.INDUSTRY);
                     for (JsonNode industry : industries) {
-                        this.industries.add(industry.asText().toLowerCase());
+                        this.industries.add(industry.asText());
                     }
                 }
 
                 this.companySizeCurrent = new HashSet<>();
                 if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.POSITION_CURRENT)) {
-                    JsonNode currentPosition = analytics.get(ResumeField.INDUSTRY);
+                    JsonNode currentPosition = analytics.get(ResumeField.POSITION_CURRENT);
                     if (!currentPosition.isEmpty() && !JsonResumeParseUtils.isJsonNodeNull(currentPosition, ResumeField.POSITION_COMPANY_SIZE)) {
                         for (JsonNode companySize : currentPosition.get(ResumeField.POSITION_COMPANY_SIZE)) {
                             this.companySizeCurrent.add(companySize.asText());
@@ -257,7 +259,9 @@ public class Resume {
                     JsonNode clearance = analytics.get(ResumeField.SECURITY_CLEARANCE);
                     Iterator<Map.Entry<String, JsonNode>> fields = clearance.fields();
                     while (fields.hasNext()) {
-                        for (JsonNode clearanceValue : fields.next().getValue()) {
+                        Map.Entry<String, JsonNode> entry = fields.next();
+                        clearanceInfo.append(entry.getKey()).append(',');
+                        for (JsonNode clearanceValue : entry.getValue()) {
                             clearanceInfo.append(clearanceValue.asText()).append(',');
                         }
                     }
@@ -265,7 +269,11 @@ public class Resume {
 
                 if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.IT_ANALYTICS)) {
                     JsonNode it = analytics.get(ResumeField.IT_ANALYTICS);
-                    this.itRankLevel = JsonResumeParseUtils.getIntFieldFromJsonNode(it, ResumeField.IT_ANALYTICS_RANK_LEVEL);
+                    if (it.hasNonNull(ResumeField.IT_ANALYTICS_RANK_LEVEL)) {
+                        this.itRankLevel = JsonResumeParseUtils.getIntFieldFromJsonNode(it, ResumeField.IT_ANALYTICS_RANK_LEVEL);
+                    } else {
+                        this.itRankLevel = -1;
+                    }
                     if (!JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.LANGUAGE)) {
                         for (JsonNode language : it.get(ResumeField.LANGUAGE)) {
                             itInfo.append(language.asText()).append(',');
@@ -314,19 +322,19 @@ public class Resume {
                     for (JsonNode edu : educations) {
                         String degree = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_DEGREE, "");
                         if (!StringUtils.isEmpty(degree)) {
-                            this.eduDegrees.add(degree.toLowerCase());
+                            this.eduDegrees.add(degree);
                         }
                         String level = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_LEVEL, "");
                         if (!StringUtils.isEmpty(level)) {
-                            this.eduLevels.add(level.toLowerCase());
+                            this.eduLevels.add(level);
                         }
                         String major = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_MAJOR, "");
                         if (!StringUtils.isEmpty(major)) {
-                            this.eduMajors.add(major.toLowerCase());
+                            this.eduMajors.add(major);
                         }
                         String schoolName = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_SCHOOL_NAME, "");
                         if (!StringUtils.isEmpty(schoolName)) {
-                            this.eduSchoolNames.add(schoolName.toLowerCase());
+                            this.eduSchoolNames.add(schoolName);
                         }
                         String description = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_DESCRIPTION, "");
                         if (!StringUtils.isEmpty(description)) {
@@ -340,8 +348,12 @@ public class Resume {
                     }
                 }
             }
-            String educationInfo = String.join(",", this.eduDegrees) + "," + String.join(",", this.eduMajors) + ","
-                    + String.join(",", this.eduSchoolNames) + "," +String.join(",", eduDescriptions);
+            if (!StringUtils.isEmpty(eduL)) {
+                this.eduLevels.add(eduL);
+            }
+
+            String educationInfo = String.join(",", String.join(",", this.eduDegrees),
+                    String.join(",", this.eduMajors), String.join(",", this.eduSchoolNames), String.join(",", eduDescriptions));
 
             this.companiesPast = new HashSet<>();
             this.companyIdsPast = new HashSet<>();
@@ -354,6 +366,8 @@ public class Resume {
                 JsonNode positions = jsonNode.get(ResumeField.POSITION);
                 if (!positions.isEmpty()) {
                     Map<String, Integer> map = new HashMap<>();
+                    int k = 0;
+                    int ccindex = Integer.MIN_VALUE;
                     for (JsonNode position : positions) {
                         String companyName = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_COMPANY_NAME, "");
                         String companyId = JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_COMPANY_ID, "");
@@ -362,34 +376,48 @@ public class Resume {
                         Set<String> nTitles = new HashSet<>();
                         if (position.hasNonNull(ResumeField.POSITION_NORMED_TITLE)) {
                             for (JsonNode nTitle : position.get(ResumeField.POSITION_NORMED_TITLE)) {
-                                nTitles.add(nTitle.asText().toLowerCase());
+                                nTitles.add(nTitle.asText());
                             }
                         }
 
                         Boolean isCurrent = JsonResumeParseUtils.getBoolFieldFromJsonNode(position, ResumeField.POSITION_IS_CURRENT);
                         if (isCurrent && StringUtils.isEmpty(this.companyCurrent)) {
-                            this.companyCurrent = companyName.toLowerCase();
+                            this.companyCurrent = companyName;
                             this.companyIdCurrent = companyId;
                             if (!StringUtils.isEmpty(title)) {
-                                this.titlesCurrent.add(title.toLowerCase());
+                                this.titlesCurrent.add(title);
                             }
                             this.normedTitlesCurrent.addAll(nTitles);
                             this.monthsCurrentRole = DateUtils.getMonthsFromDate(JsonResumeParseUtils.getStringFieldFromJsonNode(position,
                                     ResumeField.POSITION_START_DATE, ""));
+                            ccindex = k;
                         } else if (isCurrent) {
+                            //TODO: some data seem wrong, a candidate has multiple current positions, should ask data team later
+                            if (!StringUtils.isEmpty(companyName) && !companyName.equals(this.companyCurrent)) {
+                                this.companiesPast.add(companyName);
+                                if (!StringUtils.isEmpty(companyId)) {
+                                    this.companyIdsPast.add(companyId);
+                                }
+                            }
+
                             if (!StringUtils.isEmpty(title)) {
-                                this.titlesPast.add(title.toLowerCase());
+                                this.titlesPast.add(title);
                             }
                             this.normedTitlesPast.addAll(nTitles);
                         } else {
                             if (!StringUtils.isEmpty(companyName)) {
-                                this.companiesPast.add(companyName.toLowerCase());
+                                if ((k - ccindex) == 1 && companyName.equals(this.companyCurrent)) {
+                                    ccindex = k;
+                                } else {
+                                    this.companiesPast.add(companyName);
+                                    if (!StringUtils.isEmpty(companyId)) {
+                                        this.companyIdsPast.add(companyId);
+                                    }
+                                }
                             }
-                            if (!StringUtils.isEmpty(companyId)) {
-                                this.companyIdsPast.add(companyId);
-                            }
+
                             if (!StringUtils.isEmpty(title)) {
-                                this.titlesPast.add(title.toLowerCase());
+                                this.titlesPast.add(title);
                             }
                             this.normedTitlesPast.addAll(nTitles);
                         }
@@ -405,14 +433,21 @@ public class Resume {
                         map.put(companyName, offset + DateUtils.getMonthsFromDate(
                                 JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_START_DATE, ""),
                                 JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_END_DATE, "")));
+                        k++;
                     }
                     if (!StringUtils.isEmpty(this.companyCurrent) && map.containsKey(this.companyCurrent)) {
                         this.monthsCurrentCompany = map.get(this.companyCurrent);
                     }
                 }
             }
-            String positionInfo = this.companyCurrent + "," + String.join(",", this.companiesPast) + "," + String.join(",", positionSummaries)
-                    + "," + String.join(",", this.titlesCurrent) + "," +String.join(",", this.titlesPast);
+            if (this.companyCurrent == null) {
+                this.companyCurrent = "";
+            }
+            if (this.companyIdCurrent == null) {
+                this.companyIdCurrent = "";
+            }
+            String positionInfo = String.join(",", this.companyCurrent, String.join(",", this.companiesPast),
+                    String.join(",", positionSummaries), String.join(",", this.titlesCurrent), String.join(",", this.titlesPast));
 
             StringBuilder certInfo = new StringBuilder();
             if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.CERTIFICATION)) {
@@ -454,10 +489,10 @@ public class Resume {
                                    .append(JsonResumeParseUtils.getStringFieldFromJsonNode(publication, ResumeField.PUBLICATION_DESCRIPTION, "")).append(',');
                 }
             }
-            this.titleSkill = certInfo + String.join(",", this.titlesCurrent) + "," + String.join(",", this.titlesPast)
-                        + highlight + languageInfo + clearanceInfo + String.join(",", this.reviewedSkills);
-            this.compoundInfo = certInfo + highlight + positionInfo + educationInfo + itInfo + languageInfo
-                        + patentInfo + projectInfo + publicationInfo + String.join(",", this.normedSkills);
+            this.titleSkill = String.join(",", certInfo, highlight, languageInfo, clearanceInfo,
+                    String.join(",", this.titlesCurrent), String.join(",", this.titlesPast), String.join(",", this.reviewedSkills));
+            this.compoundInfo = String.join(",",certInfo, highlight, positionInfo, educationInfo, itInfo,
+                    languageInfo, patentInfo, projectInfo, publicationInfo, String.join(",", this.normedSkills));
             if (jsonNode.has("embedding")) {
                 this.embedding = new float[IndexBuildService.embeddingDimension];
                 Iterator<JsonNode> arrayIterator = jsonNode.get("embedding").iterator();
@@ -852,5 +887,42 @@ public class Resume {
                 + "|locContinent:" + locContinent + "|locNation:" + locNation + "|locState:" + locState + "|locCity:" + locCity + "|locLat:"+ locLat
                 + "|locLon:" + locLon + "|titleSkill:" + titleSkill + "|compoundInfo:" + compoundInfo;
     }
+
+//    public static void main(String[] args) {
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        try {
+//            File file = new File("/Users/jetyang/resume_sample");
+//            if (file.isDirectory()) {
+//                File[] filelist = file.listFiles();
+//                for (int i = 0; i < filelist.length; i++) {
+//                    String fn = filelist[i].getAbsolutePath();
+//                    if (fn.endsWith("json")) {
+//                        logger.info(filelist[i].getAbsolutePath());
+//                        long t1 = System.currentTimeMillis();
+//                        JsonNode jsonArray = objectMapper.readTree(filelist[i]);
+//                        long t2 = System.currentTimeMillis();
+//                        logger.info("json array size: " + jsonArray.size() + "|time cost: " + (t2 - t1) + " ms");
+//                        int k = 0;
+//                        for (JsonNode node : jsonArray) {
+//                            Resume resume = new Resume(node);
+//                            k++;
+//                            if (k % 10000 == 0) {
+//                                logger.info(node.toString());
+//                                logger.info(resume.toString());
+//                            }
+//                        }
+//                        long t3 = System.currentTimeMillis();
+//                        logger.info("time cost: " + (t3 - t1) + " ms");
+//                    }
+//                }
+//            }
+//        } catch (FileNotFoundException e) {
+//            logger.error("can not open directory", e);
+//        } catch (JsonProcessingException e) {
+//            logger.error("can not parse json string", e);
+//        } catch (IOException e) {
+//            logger.error("can not read json", e);
+//        }
+//    }
 
 }

@@ -17,16 +17,21 @@ public class DateUtils {
     }
 
     public static int getMonthsFromDate(String fromDate, String endDate) {
-        if (fromDate == null || fromDate.length() == 0 || endDate == null || endDate.length() == 0) {
+        if (fromDate == null || endDate == null) {
             return 0;
         }
         Date fd;
-        Date ed;
         try {
             fd = positionFormatter.parse(fromDate);
-            ed = positionFormatter.parse(endDate);
         } catch(Exception e) {
             return 0;
+        }
+
+        Date ed;
+        try {
+            ed = positionFormatter.parse(endDate);
+        } catch(Exception e) {
+            ed = new Date();
         }
         Calendar c1 = Calendar.getInstance();
         Calendar c2 = Calendar.getInstance();

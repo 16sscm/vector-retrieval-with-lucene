@@ -10,9 +10,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Resume {
     private static final Logger logger = LoggerFactory.getLogger(Resume.class);
+
+    private static final Pattern pattern = Pattern.compile("\\d{4}");
 
     private String uid;
     // use for ranking
@@ -29,6 +33,9 @@ public class Resume {
     private Set<String> eduSchoolIds;
     private int itRankLevel;
     private String yoe;
+    private String seniority;
+    private Set<String> languages;
+    private int eduGradYear;
     // count in months
     private int monthsCurrentCompany;
     // count in months
@@ -91,6 +98,9 @@ public class Resume {
                   Set<String> eduSchoolIds,
                   int itRankLevel,
                   String yoe,
+                  String seniority,
+                  Set<String> languages,
+                  int eduGradYear,
                   int monthsCurrentCompany,
                   int monthsCurrentRole,
                   boolean divWoman,
@@ -136,6 +146,9 @@ public class Resume {
         this.eduSchoolIds = eduSchoolIds;
         this.itRankLevel = itRankLevel;
         this.yoe = yoe;
+        this.seniority = seniority;
+        this.languages = languages;
+        this.eduGradYear = eduGradYear;
         this.monthsCurrentCompany = monthsCurrentCompany;
         this.monthsCurrentRole = monthsCurrentRole;
         this.divWoman = divWoman;
@@ -174,6 +187,7 @@ public class Resume {
         try {
             String highlight = "";
             String eduL = "";
+            this.itRankLevel = -1;
             StringBuilder normedSkillInfo = new StringBuilder();
             StringBuilder reviewedSkillInfo = new StringBuilder();
             StringBuilder itInfo = new StringBuilder();
@@ -192,6 +206,7 @@ public class Resume {
 
                 this.availability = JsonResumeParseUtils.getIntFieldFromJsonNode(analytics, ResumeField.AVAILABILITY);
                 this.yoe = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EXPERIENCE, "");
+                this.seniority = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.SENIORITY, "");
                 eduL = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EDUCATION, "");
 
                 this.divWoman = ResumeField.FEMALE.equals(JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.GENDER, ""));
@@ -271,8 +286,6 @@ public class Resume {
                     JsonNode it = analytics.get(ResumeField.IT_ANALYTICS);
                     if (it.hasNonNull(ResumeField.IT_ANALYTICS_RANK_LEVEL)) {
                         this.itRankLevel = JsonResumeParseUtils.getIntFieldFromJsonNode(it, ResumeField.IT_ANALYTICS_RANK_LEVEL);
-                    } else {
-                        this.itRankLevel = -1;
                     }
                     if (!JsonResumeParseUtils.isJsonNodeNull(it, ResumeField.LANGUAGE)) {
                         for (JsonNode language : it.get(ResumeField.LANGUAGE)) {
@@ -316,9 +329,11 @@ public class Resume {
             this.eduSchoolNames = new HashSet<>();
             this.eduSchoolIds = new HashSet<>();
             Set<String> eduDescriptions = new HashSet<>();
+            this.eduGradYear = -1;
             if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.EDUCATION)) {
                 JsonNode educations = jsonNode.get(ResumeField.EDUCATION);
                 if (!educations.isEmpty()) {
+                    boolean isFirst = true;
                     for (JsonNode edu : educations) {
                         String degree = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_DEGREE, "");
                         if (!StringUtils.isEmpty(degree)) {
@@ -345,6 +360,20 @@ public class Resume {
                                 this.eduSchoolIds.add(schoolId.asText());
                             }
                         }
+                        if (isFirst) {
+                            String gradYear = JsonResumeParseUtils.getStringFieldFromJsonNode(edu, ResumeField.EDUCATION_GRAD_YEAR, "").trim();
+                            if (!StringUtils.isEmpty(gradYear) && !gradYear.equals("present")) {
+                                try {
+                                    Matcher matcher = pattern.matcher(gradYear);
+                                    if (matcher.find()) {
+                                        this.eduGradYear = Integer.parseInt(matcher.group());
+                                    }
+                                } catch (Exception e) {
+                                    logger.warn("fail to parse grad year to int|" + gradYear);
+                                }
+                            }
+                        }
+                        isFirst = false;
                     }
                 }
             }
@@ -449,18 +478,21 @@ public class Resume {
             String positionInfo = String.join(",", this.companyCurrent, String.join(",", this.companiesPast),
                     String.join(",", positionSummaries), String.join(",", this.titlesCurrent), String.join(",", this.titlesPast));
 
+            this.languages = new HashSet<>();
+            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.LANGUAGE)) {
+                for (JsonNode language : jsonNode.get(ResumeField.LANGUAGE)) {
+                    String languageStr = JsonResumeParseUtils.getStringFieldFromJsonNode(language, ResumeField.LANGUAGE_NAME, "");
+                    if (!StringUtils.isEmpty(languageStr)) {
+                        this.languages.add(languageStr);
+                    }
+                }
+            }
+
             StringBuilder certInfo = new StringBuilder();
             if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.CERTIFICATION)) {
                 for (JsonNode certification : jsonNode.get(ResumeField.CERTIFICATION)) {
                     certInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(certification, ResumeField.CERTIFICATION_NAME, "")).append(',')
                             .append(JsonResumeParseUtils.getStringFieldFromJsonNode(certification, ResumeField.CERTIFICATION_AUTHORITY, "")).append(',');
-                }
-            }
-
-            StringBuilder languageInfo = new StringBuilder();
-            if (!JsonResumeParseUtils.isJsonNodeNull(jsonNode, ResumeField.LANGUAGE)) {
-                for (JsonNode language : jsonNode.get(ResumeField.LANGUAGE)) {
-                    languageInfo.append(JsonResumeParseUtils.getStringFieldFromJsonNode(language, ResumeField.LANGUAGE_NAME, "")).append(',');
                 }
             }
 
@@ -489,10 +521,12 @@ public class Resume {
                                    .append(JsonResumeParseUtils.getStringFieldFromJsonNode(publication, ResumeField.PUBLICATION_DESCRIPTION, "")).append(',');
                 }
             }
-            this.titleSkill = String.join(",", certInfo, highlight, languageInfo, clearanceInfo,
+
+            this.titleSkill = String.join(",", certInfo, highlight, String.join(",", this.languages), clearanceInfo,
                     String.join(",", this.titlesCurrent), String.join(",", this.titlesPast), String.join(",", this.reviewedSkills));
             this.compoundInfo = String.join(",",certInfo, highlight, positionInfo, educationInfo, itInfo,
-                    languageInfo, patentInfo, projectInfo, publicationInfo, String.join(",", this.normedSkills));
+                    String.join(",", this.languages), patentInfo, projectInfo, publicationInfo, String.join(",", this.normedSkills));
+
             if (jsonNode.has("embedding")) {
                 this.embedding = new float[IndexBuildService.embeddingDimension];
                 Iterator<JsonNode> arrayIterator = jsonNode.get("embedding").iterator();
@@ -539,6 +573,30 @@ public class Resume {
 
     public void setYoe(String yoe) {
         this.yoe = yoe;
+    }
+
+    public String getSeniority() {
+        return seniority;
+    }
+
+    public void setSeniority(String seniority) {
+        this.seniority = seniority;
+    }
+
+    public Set<String> getLanguages() {
+        return languages;
+    }
+
+    public void setLanguages(Set<String> languages) {
+        this.languages = languages;
+    }
+
+    public int getEduGradYear() {
+        return eduGradYear;
+    }
+
+    public void setEduGradYear(int eduGradYear) {
+        this.eduGradYear = eduGradYear;
     }
 
     public int getMonthsCurrentCompany() {
@@ -876,6 +934,7 @@ public class Resume {
                 + "|eduLevels:" + String.join(",", this.eduLevels) + "|eduBusinessAdmLevels:" + String.join(",", this.eduBusinessAdmLevels)
                 + "|eduMajors:" + String.join(",", this.eduMajors) + "|eduSchoolNames:" + String.join(",", this.eduSchoolNames)
                 + "|eduSchoolIds:" + String.join(",", this.eduSchoolIds) + "|itRankLevel:" + itRankLevel + "|yoe:" + yoe
+                + "|seniority:" + seniority + "|languages:" + String.join(",", this.languages) + "|eduGradYear:" + eduGradYear
                 + "|monthsCurrentCompany:" + monthsCurrentCompany + "|monthsCurrentRole:" + monthsCurrentRole + "|divWoman:" + divWoman
                 + "|divBlack:" + divBlack + "|divHispanic:" + divHispanic + "|divAsian:" + divAsian + "|divNative:" + divNative + "|divVeteran:" + divVeteran
                 + "|companyCurrent:" + companyCurrent + "|companyIdCurrent:" + companyIdCurrent + "|companySizeCurrent:" + companySizeCurrent
@@ -924,5 +983,4 @@ public class Resume {
 //            logger.error("can not read json", e);
 //        }
 //    }
-
 }

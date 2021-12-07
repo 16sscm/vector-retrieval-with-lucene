@@ -68,7 +68,11 @@ public class ResumeField {
 
     public static final String EDUCATION_DESCRIPTION = "education_description";
 
+    public static final String EDUCATION_GRAD_YEAR = "education_endyear";
+
     public static final String EXPERIENCE = "experience";
+
+    public static final String SENIORITY = "title";
 
     public static final String SKILL = "skill";
 

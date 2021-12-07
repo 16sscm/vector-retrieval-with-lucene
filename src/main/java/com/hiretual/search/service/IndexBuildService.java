@@ -152,7 +152,7 @@ public class IndexBuildService {
 		addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
 
 		addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
-
+		addStringIntoDoc(doc, "seniority", resume.getSeniority(), Field.Store.NO);
 		addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
 		addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
 
@@ -170,7 +170,9 @@ public class IndexBuildService {
 		if (resume.getItRankLevel() >= 0) {
 			addIntPointIntoDoc(doc, "itRankLevel", resume.getItRankLevel());
 		}
-
+		if (resume.getEduGradYear() >= 0) {
+			addIntPointIntoDoc(doc, "eduGradYear", resume.getEduGradYear());
+		}
 		addSetConcatStringIntoDoc(doc, "eduDegree", resume.getEduDegrees(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "eduLevel", resume.getEduLevels(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "eduBALK", resume.getEduBusinessAdmLevels(), Field.Store.NO);
@@ -178,6 +180,8 @@ public class IndexBuildService {
 		addSetConcatStringIntoDoc(doc, "eduMajor", resume.getEduMajors(), Field.Store.NO);
 		addSetConcatStringIntoDoc(doc, "eduSN", resume.getEduSchoolNames(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "eduSI", resume.getEduSchoolIds(), Field.Store.NO);
+
+		addSetConcatStringIntoDoc(doc, "language", resume.getLanguages(), Field.Store.NO);
 
 		addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
 		addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
@@ -188,8 +192,8 @@ public class IndexBuildService {
 		addSetConcatStringIntoDoc(doc, "tc", resume.getTitlesCurrent(), Field.Store.NO);
 		addSetStringIntoDoc(doc, "ntcK", resume.getNormedTitlesCurrent(), Field.Store.NO);
 		addSetConcatStringIntoDoc(doc, "ntc", resume.getNormedTitlesCurrent(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO);
+		addSetConcatStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO); // not used for now
+		addSetConcatStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO); // not used for now
 		addSetStringIntoDoc(doc, "nsK", resume.getNormedSkills(), Field.Store.NO);
 		addSetConcatStringIntoDoc(doc, "ns", resume.getNormedSkills(), Field.Store.NO);
 		addSetConcatStringIntoDoc(doc, "rs", resume.getReviewedSkills(), Field.Store.NO);

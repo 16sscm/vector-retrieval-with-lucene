@@ -46,9 +46,12 @@ public class SearchController {
     @RequestMapping(value="/doc/add", method=RequestMethod.POST, produces="application/json;charset=UTF-8")
     public String insertDocument(HttpServletRequest request) {
         try{
-            JsonNode doc = RequestParser.getPostParameter(request);
-            Resume resume = new Resume(doc);
-            indexBuildService.addDocument(resume);
+            JsonNode docs = RequestParser.getPostParameter(request);
+            for(JsonNode doc:docs){
+                Resume resume = new Resume(doc);
+                indexBuildService.addDocument(resume);
+            }
+           
            
         }catch(Exception e){
             logger.warn("fail to add document",e);

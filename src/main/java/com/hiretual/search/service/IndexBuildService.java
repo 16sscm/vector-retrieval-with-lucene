@@ -78,10 +78,10 @@ public class IndexBuildService {
 		}
 		// load knn model(trained) and flat map if exist to make it  searchable,
 		// otherwise you should  add the vector first,and remember to save
-		// int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 64, 8,  pIvfpqFile);
-		// if(suc==0){
-		// 	logger.error("fail to initialize clib,msg:"+clib.FilterKnn_GetErrorMsg());
-		// }
+		int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 64, 8,  pIvfpqFile);
+		if(suc==0){
+			logger.error("fail to initialize clib,msg:"+clib.FilterKnn_GetErrorMsg());
+		}
 	}
 
 	private void addSetConcatStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
@@ -382,7 +382,7 @@ public class IndexBuildService {
 	public int commitAndCheckIndexSize(){
 		try{
 			writer.commit();
-		    SearchService.lazyInit(writer);
+		    SearchService.lazyInit();
 			IndexReader indexReader=SearchService.indexReader;
 			int maxDoc=indexReader.maxDoc();
 			int numDocs=indexReader.numDocs();

@@ -82,6 +82,7 @@ public class JedisUtils{
             }
             return ret;
         } catch(Exception e) {
+            e.printStackTrace();
             return null;
         } finally {
            jedis.close();

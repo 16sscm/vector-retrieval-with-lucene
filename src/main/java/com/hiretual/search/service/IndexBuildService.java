@@ -204,11 +204,11 @@ public class IndexBuildService {
 		addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
 		addStringIntoDoc(doc, "country", resume.getLocNation(), Field.Store.NO);
 		addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
-		addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO);;
+		addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO); // not used for now
 		Field distanceField = new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
 		doc.add(distanceField);
 
-		addTextIntoDoc(doc, "ts", resume.getTitleSkill(), Field.Store.NO);
+		addTextIntoDoc(doc, "ts", resume.getTitleSkill(), Field.Store.NO); // not used for now
 		addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
 
 		if(resume.getEmbedding()==null){

@@ -658,6 +658,7 @@ public class QueryConvertor {
                                             if (!education.findPath("user.education.schools").isMissingNode()) {
                                                 String schoolName = education.findPath("user.education.schools").get("query").asText();
                                                 excludebq.add(queryBuilder.createPhraseQuery("eduSN", schoolName), BooleanClause.Occur.MUST_NOT);
+                                                excludeCount++;
                                             } else {
                                                 logger.warn("unexpected must not school name phrase match: " + education.toString());
                                             }
@@ -669,6 +670,7 @@ public class QueryConvertor {
                                             if (!education.findPath("user.education.education_id").isMissingNode()) {
                                                 for (JsonNode eid : education.findPath("user.education.education_id")) {
                                                     excludebq.add(new TermQuery(new Term("eduSI", eid.asText())), BooleanClause.Occur.MUST_NOT);
+                                                    excludeCount++;
                                                 }
                                             } else {
                                                 logger.warn("unexpected must not school id match: " + education.toString());
@@ -681,6 +683,7 @@ public class QueryConvertor {
                                             if (!query.findPath("user.global_search").isMissingNode()) {
                                                 String queryString = query.findPath("user.global_search").get("query").asText();
                                                 excludebq.add(queryBuilder.createPhraseQuery("compound", queryString), BooleanClause.Occur.MUST_NOT);
+                                                excludeCount++;
                                             } else {
                                                 logger.warn("unexpected must not global phrase match: " + query.toString());
                                             }

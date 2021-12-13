@@ -17,7 +17,7 @@ public class ClibTest {
 
     @Test
     public void testSearch() {
-        int suc = cLib.FilterKnn_InitLibrary(128, 10000, 64, 8, "/root/ivf_10000_pq_2_256.bin");
+        int suc = cLib.FilterKnn_InitLibrary(128, 10000, 2, 256, "/root/ivf_10000_pq_2_256.bin");
         double[] queryD = new double[] {
             1.8178300e+00,  1.3341966e+00,  1.4686838e+00,  2.2286918e+00,
         1.9853102e+00,  1.0299859e+00,  7.5971550e-01, -2.2765882e+00,
@@ -60,7 +60,7 @@ public class ClibTest {
         float resultDistances1[] = new float[topK];
 
         System.out.println("ivfpq search...");
-        long suc4 = cLib.FilterKnn_IvfpqSearch(query, 1000, 1000000, 100, 0, null, topK,
+        long suc4 = cLib.FilterKnn_IvfpqSearch(query, 1000, 1000000, 100,1, 0, null, topK,
                 resultIds1, resultDistances1);
         System.out.printf("ivfpq search result count: %d\n", suc4);
 
@@ -79,7 +79,7 @@ public class ClibTest {
 
         System.out.println("loading...");
         long t = System.currentTimeMillis();
-        int suc = cLib.FilterKnn_InitLibrary(128, 10000, 64, 8, pIvfpqFile);
+        int suc = cLib.FilterKnn_InitLibrary(128, 10000, 2, 256, pIvfpqFile);
         System.out.println("done!cost:" + (System.currentTimeMillis() - t));
         System.out.println(suc + "tt");
 
@@ -142,7 +142,7 @@ public class ClibTest {
         float resultDistances1[] = new float[topK];
         System.out.println("ivfpq search...");
         t = System.currentTimeMillis();
-        long suc4 = cLib.FilterKnn_IvfpqSearch(query, 1000, 10000, 5, 0, null, topK,
+        long suc4 = cLib.FilterKnn_IvfpqSearch(query, 1000, 10000, 5,1, 0, null, topK,
                 resultIds1, resultDistances1);
         System.out.println("done!cost:" + (System.currentTimeMillis() - t));
         System.out.println(suc4 + "tttttt");

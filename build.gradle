@@ -31,7 +31,9 @@ dependencies {
     implementation "org.springframework.data:spring-data-redis:2.3.9.RELEASE"
     implementation "redis.clients:jedis:3.7.0"
     implementation "org.springframework.boot:spring-boot-starter-actuator"
+    implementation "org.rocksdb:rocksdbjni:6.6.4"
 }
+
 // copy dependencies to lib
 task copyJar(type: Copy) {
     // clear current lib

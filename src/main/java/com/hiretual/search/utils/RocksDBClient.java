@@ -1,6 +1,11 @@
 package com.hiretual.search.utils;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +33,7 @@ public class RocksDBClient {
     }
     public void set(String key, float[] array) {
             try {
-                rocksDB.put(key.getBytes(), JedisUtils.serialize(array));
+                rocksDB.put(key.getBytes(), serialize(array));
             } catch (RocksDBException e) {
                 e.printStackTrace();
             }
@@ -37,7 +42,7 @@ public class RocksDBClient {
     public void batchSet(Map<String, float[]> map) {
         try (WriteBatch writeBatch = new WriteBatch()) {
             for (Map.Entry<String, float[]> entry : map.entrySet()) {
-                writeBatch.put(entry.getKey().getBytes(), JedisUtils.serialize(entry.getValue()));
+                writeBatch.put(entry.getKey().getBytes(), serialize(entry.getValue()));
             }
             rocksDB.write(new WriteOptions(), writeBatch);
         } catch (RocksDBException e) {
@@ -48,7 +53,7 @@ public class RocksDBClient {
 
     public float[] get(String key) {
         try {
-            return JedisUtils.unserialize(rocksDB.get(key.getBytes()));
+            return unserialize(rocksDB.get(key.getBytes()));
         } catch (RocksDBException e) {
             e.printStackTrace();
         }
@@ -65,7 +70,7 @@ public class RocksDBClient {
             List<byte[]>valueList=rocksDB.multiGetAsList(keyList);
             List<float[]> ret = new ArrayList<>();
             for (byte[] ba : valueList) {
-                ret.add(JedisUtils.unserialize(ba));
+                ret.add(unserialize(ba));
             }
             return ret;
         } catch (RocksDBException e) {
@@ -76,6 +81,34 @@ public class RocksDBClient {
         return null;
         
     }
+
+    private static byte[] serialize(float[] array) {
+        ObjectOutputStream oos = null;
+        ByteArrayOutputStream baos = null;
+        try {
+            baos = new ByteArrayOutputStream();
+            oos = new ObjectOutputStream(baos);
+            oos.writeObject(array);
+            byte[] bytes = baos.toByteArray();
+            return bytes;
+        } catch (Exception e) {
+            logger.error("fail to serialize the vector: " + Arrays.toString(array));
+        }
+        return null;
+    }
+
+    private static float[] unserialize(byte[] bytes) {
+        ByteArrayInputStream bais = null;
+        try {
+            bais = new ByteArrayInputStream(bytes);
+            ObjectInputStream ois = new ObjectInputStream(bais);
+            return (float[]) ois.readObject();
+        } catch (Exception e) {
+            logger.error("fail to unserialize the vector: " + bytes);
+        }
+        return null;
+    }
+
     public static void shutdown(){
         rocksDB.close();
     }

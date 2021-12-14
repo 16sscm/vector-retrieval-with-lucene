@@ -5,16 +5,11 @@ import com.hiretual.search.filterindex.KNNResult;
 import com.hiretual.search.model.DistributeInfo;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.service.IndexBuildService;
-import com.hiretual.search.service.IndexBuilderHelper;
 import com.hiretual.search.service.SearchService;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.hiretual.search.utils.JedisUtils;
 import com.hiretual.search.utils.QueryConvertor;
 import com.hiretual.search.utils.RequestParser;
 import org.apache.lucene.search.*;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.TermQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +20,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
 import java.util.List;
 
 @Component

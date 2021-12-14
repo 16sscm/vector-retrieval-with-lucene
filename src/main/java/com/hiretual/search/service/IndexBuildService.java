@@ -6,7 +6,6 @@ import com.hiretual.search.model.DistributeInfo;
 import com.hiretual.search.model.FilterResume;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.utils.GlobalPropertyUtils;
-import com.hiretual.search.utils.JedisUtils;
 import com.hiretual.search.utils.RawDataReader;
 import com.hiretual.search.utils.RequestParser;
 import com.hiretual.search.utils.RocksDBClient;
@@ -15,6 +14,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -37,11 +38,14 @@ public class IndexBuildService {
 
 	private static final Logger logger = LoggerFactory.getLogger(IndexBuildService.class);
 
+	private static final int threadPoolSize = 8; //TODO: put this into config file
+	private static final int threadNumPerJson = 16; //TODO: put this into config file
+
 	private static final String USER_HOME = System.getProperty("user.home");
 	private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
 	private static final String RAW_JSON = GlobalPropertyUtils.get("raw_json");
 	private static final String EMBEDDING_JSON = GlobalPropertyUtils.get("embedding_json");
-	
+
 	private static final String MAX_MEMORY = GlobalPropertyUtils.get("max.memory");
 	private static final String EMBEDDING_DIMENSION = GlobalPropertyUtils.get("embedding.dimension");
 	private static String NUM_IVF_CLUSTER = GlobalPropertyUtils.get("num_ivf_cluster");
@@ -54,11 +58,11 @@ public class IndexBuildService {
 	static String c_index_dir =
 			USER_HOME + GlobalPropertyUtils.get("c_index_dir");
 
-	
+
 	static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
 	public static int numIvfCluster;
 	private static CLib clib = CLib.INSTANCE;
-    
+
 	@Autowired
 	private RocksDBClient rocksDBClient;
 	static {
@@ -91,197 +95,258 @@ public class IndexBuildService {
 		}
 	}
 
-	private void addSetConcatStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
-		if (values == null || values.size() == 0) {
-			return;
-		}
-		String str = String.join(" , ", values);
-		if (!StringUtils.isEmpty(str)) {
-			Field field = new TextField(fieldName, str, isStored);
-			doc.add(field);
-		}
-	}
+	private class AddDocThread extends Thread {
+		private String id;
+		private List<JsonNode> docs;
+		private List<JsonNode> embeddings;
 
-	private void addSetStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
-		if (values == null || values.size() == 0) {
-			return;
+		public AddDocThread(String tid) {
+			id = tid;
+			docs = new ArrayList<>();
+			embeddings = new ArrayList<>();
 		}
-		for (String value : values) {
-			if (!StringUtils.isEmpty(value)) {
-				Field field = new StringField(fieldName, value.toLowerCase(), isStored);
-				doc.add(field);
-			}
+
+		public AddDocThread(String tid, List<JsonNode> docList, List<JsonNode> embeddingList) {
+			id = tid;
+			docs = docList;
+			embeddings = embeddingList;
 		}
-	}
 
-	private void addStringIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
-		if (StringUtils.isEmpty(value)) {
-			return;
+		public void addDoc(JsonNode d, JsonNode e) {
+			docs.add(d);
+			embeddings.add(e);
 		}
-		Field field = new StringField(fieldName, value.toLowerCase(), isStored);
-		doc.add(field);
-	}
 
-	private void addSetTextIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
-		if (values == null || values.size() == 0) {
-			return;
-		}
-		for (String value : values) {
-			if (!StringUtils.isEmpty(value)) {
-				Field field = new TextField(fieldName, value, isStored);
-				doc.add(field);
-			}
-		}
-	}
+		@Override
+		public void run() {
+			long t1 = System.currentTimeMillis();
+			Map<String, float[]> embeddingMap = new HashMap<>();
+			List<Document> docList = new ArrayList<>();
+			for (int i = 0; i < docs.size(); i++){
+				JsonNode doc = docs.get(i);
+				Resume resume = new Resume(doc);
 
-	private void addTextIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
-		if (StringUtils.isEmpty(value)) {
-			return;
-		}
-		Field field = new TextField(fieldName, value, isStored);
-		doc.add(field);
-	}
-
-	private void addNumericIntoDoc(Document doc, String fieldName, int value) {
-		Field field = new NumericDocValuesField(fieldName, value);
-		doc.add(field);
-	}
-
-	private void addIntPointIntoDoc(Document doc, String fieldName, int value) {
-		Field field = new IntPoint(fieldName, value);
-		doc.add(field);
-	}
-
-	public void process(DistributeInfo distributeInfo){
-		IndexBuilderHelper helper=new IndexBuilderHelper(distributeInfo);
-		List<String>rawJsonList=helper.getRawJsonList();
-		List<String>embeddingList=helper.getEmbeddingJsonList();
-		for(int i=0;i<rawJsonList.size();i++){
-			
-			String rawJsonFilename=RAW_JSON+rawJsonList.get(i);
-			String embeddingFilename=EMBEDDING_JSON+embeddingList.get(i);
-			// String rawJsonFilename="/root/vector-retrieval-base/src/test/resource/0.json";
-			// String embeddingFilename="/root/vector-retrieval-base/src/test/resource/embedding.json";
-			JsonNode docs=RequestParser.getPostParameter(RawDataReader.readJsonFile(rawJsonFilename));
-			JsonNode embeddings=RequestParser.getPostParameter(RawDataReader.readJsonFile(embeddingFilename)).get("embedding");
-			if(docs.size()!=embeddings.size()){
-				logger.warn("invalid raw data,raw data json does not match embedding json,json file:"+rawJsonFilename);
-				continue;
-			}
-			for(int j=0;j<docs.size();j++){
-				
-				JsonNode doc=docs.get(j);
-				
-				Resume resume=new Resume(doc);
-				
-				JsonNode embeddingNode=embeddings.get(j);
-				float[]embedding = new float[embeddingDimension];
+				JsonNode embeddingNode = embeddings.get(i);
+				float[] embedding = new float[embeddingDimension];
 				Iterator<JsonNode> arrayIterator = embeddingNode.iterator();
 				int k = 0;
 				while(arrayIterator.hasNext() && k < embeddingDimension) {
 					embedding[k] = (float) arrayIterator.next().asDouble();
 					k++;
 				}
-				addDocument(resume, embedding);
+				embeddingMap.put(resume.getUid(), embedding);
+				docList.add(convert2Document(resume));
 			}
-			logger.info("add "+embeddings.size()+" to lucene and rocksDB,json file: "+rawJsonFilename);
+			long t2 = System.currentTimeMillis();
+			long t3 = t2;
+			long t4 = t2;
+			if (docList.size() > 0 && docList.size() == embeddingMap.size()) {
+				try{
+					rocksDBClient.batchSet(embeddingMap);
+				}catch(Exception e){
+					logger.error("fail to batch set embedding|" + id, e);
+				}
+				t3 = System.currentTimeMillis();
+				// logger.info("set uid->vector to pika,uid:"+resume.getUid());
+				try {
+					writer.addDocuments(docList);
+				} catch (IOException e) {
+					logger.error("fail to batch add documents|" + id, e);
+				}
+				t4 = System.currentTimeMillis();
+				embeddingMap.clear();
+				docList.clear();
+			}
+//			logger.info("thread " + id + " done! time cost: " + (t4 - t3) + "|" + (t3 - t2) + "|" + (t2 - t1));
+		}
+
+		private Document convert2Document(Resume resume){
+
+			Document doc = new Document();
+
+			addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
+
+			addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
+			addStringIntoDoc(doc, "seniority", resume.getSeniority(), Field.Store.NO);
+			addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
+			addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
+
+			addIntPointIntoDoc(doc, "divWoman", resume.isDivWoman() ? 1 : 0);
+			addIntPointIntoDoc(doc, "divBlack", resume.isDivBlack() ? 1 : 0);
+			addIntPointIntoDoc(doc, "divHispanic", resume.isDivHispanic() ? 1 : 0);
+			addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
+			addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
+			addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
+
+			addIntPointIntoDoc(doc, "hasPersonalEmail", resume.isHasPersonalEmail() ? 1 : 0);
+			addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0);
+			addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
+
+			if (resume.getItRankLevel() >= 0) {
+				addIntPointIntoDoc(doc, "itRankLevel", resume.getItRankLevel());
+			}
+			if (resume.getEduGradYear() >= 0) {
+				addIntPointIntoDoc(doc, "eduGradYear", resume.getEduGradYear());
+			}
+			addSetConcatStringIntoDoc(doc, "eduDegree", resume.getEduDegrees(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "eduLevel", resume.getEduLevels(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "eduBALK", resume.getEduBusinessAdmLevels(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "eduBAL", resume.getEduBusinessAdmLevels(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "eduMajor", resume.getEduMajors(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "eduSN", resume.getEduSchoolNames(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "eduSI", resume.getEduSchoolIds(), Field.Store.NO);
+
+			addSetConcatStringIntoDoc(doc, "language", resume.getLanguages(), Field.Store.NO);
+
+			addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
+			addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "csc", resume.getCompanySizeCurrent(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "tc", resume.getTitlesCurrent(), Field.Store.NO);
+			addSetStringIntoDoc(doc, "ntcK", resume.getNormedTitlesCurrent(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "ntc", resume.getNormedTitlesCurrent(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO); // not used for now
+			addSetConcatStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO); // not used for now
+			addSetStringIntoDoc(doc, "nsK", resume.getNormedSkills(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "ns", resume.getNormedSkills(), Field.Store.NO);
+			addSetConcatStringIntoDoc(doc, "rs", resume.getReviewedSkills(), Field.Store.NO);
+
+			addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
+			addStringIntoDoc(doc, "locFMT", resume.getLocFmt(), Field.Store.NO);
+			addStringIntoDoc(doc, "locType", resume.getLocType(), Field.Store.NO);
+			addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
+			addStringIntoDoc(doc, "country", resume.getLocNation(), Field.Store.NO);
+			addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
+			addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO); // not used for now
+			Field distanceField = new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
+			doc.add(distanceField);
+
+			addTextIntoDoc(doc, "ts", resume.getTitleSkill(), Field.Store.NO); // not used for now
+			addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
+
+			return doc;
+		}
+
+		private void addSetConcatStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
+			if (values == null || values.size() == 0) {
+				return;
+			}
+			String str = String.join(" , ", values);
+			if (!StringUtils.isEmpty(str)) {
+				Field field = new TextField(fieldName, str, isStored);
+				doc.add(field);
+			}
+		}
+
+		private void addSetStringIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
+			if (values == null || values.size() == 0) {
+				return;
+			}
+			for (String value : values) {
+				if (!StringUtils.isEmpty(value)) {
+					Field field = new StringField(fieldName, value.toLowerCase(), isStored);
+					doc.add(field);
+				}
+			}
+		}
+
+		private void addStringIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
+			if (StringUtils.isEmpty(value)) {
+				return;
+			}
+			Field field = new StringField(fieldName, value.toLowerCase(), isStored);
+			doc.add(field);
+		}
+
+		private void addSetTextIntoDoc(Document doc, String fieldName, Set<String> values, Field.Store isStored) {
+			if (values == null || values.size() == 0) {
+				return;
+			}
+			for (String value : values) {
+				if (!StringUtils.isEmpty(value)) {
+					Field field = new TextField(fieldName, value, isStored);
+					doc.add(field);
+				}
+			}
+		}
+
+		private void addTextIntoDoc(Document doc, String fieldName, String value, Field.Store isStored) {
+			if (StringUtils.isEmpty(value)) {
+				return;
+			}
+			Field field = new TextField(fieldName, value, isStored);
+			doc.add(field);
+		}
+
+		private void addNumericIntoDoc(Document doc, String fieldName, int value) {
+			Field field = new NumericDocValuesField(fieldName, value);
+			doc.add(field);
+		}
+
+		private void addIntPointIntoDoc(Document doc, String fieldName, int value) {
+			Field field = new IntPoint(fieldName, value);
+			doc.add(field);
 		}
 	}
-	public void addDocument(Resume resume,float []embedding){
-		
-		Document doc = new Document();
 
-		addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
+	private class SingleJsonFileTask implements Runnable {
+		private String jsonFilePath;
+		private String embeddingFilePath;
 
-		addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);
-		addStringIntoDoc(doc, "seniority", resume.getSeniority(), Field.Store.NO);
-		addIntPointIntoDoc(doc, "mcc", resume.getMonthsCurrentCompany());
-		addIntPointIntoDoc(doc, "mcr", resume.getMonthsCurrentRole());
-
-		addIntPointIntoDoc(doc, "divWoman", resume.isDivWoman() ? 1 : 0);
-		addIntPointIntoDoc(doc, "divBlack", resume.isDivBlack() ? 1 : 0);
-		addIntPointIntoDoc(doc, "divHispanic", resume.isDivHispanic() ? 1 : 0);
-		addIntPointIntoDoc(doc, "divVeteran", resume.isDivVeteran() ? 1 : 0);
-		addIntPointIntoDoc(doc, "divNative", resume.isDivNative() ? 1 : 0);
-		addIntPointIntoDoc(doc, "divAsian", resume.isDivAsian() ? 1 : 0);
-
-		addIntPointIntoDoc(doc, "hasPersonalEmail", resume.isHasPersonalEmail() ? 1 : 0);
-		addIntPointIntoDoc(doc, "hasContact", resume.isHasPersonalEmail() ? 1 : 0);
-		addIntPointIntoDoc(doc, "needSponsorship", resume.isNeedSponsorship() ? 1 : 0);
-
-		if (resume.getItRankLevel() >= 0) {
-			addIntPointIntoDoc(doc, "itRankLevel", resume.getItRankLevel());
+		public SingleJsonFileTask(String jfp, String efp) {
+			jsonFilePath = jfp;
+			embeddingFilePath = efp;
 		}
-		if (resume.getEduGradYear() >= 0) {
-			addIntPointIntoDoc(doc, "eduGradYear", resume.getEduGradYear());
-		}
-		addSetConcatStringIntoDoc(doc, "eduDegree", resume.getEduDegrees(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "eduLevel", resume.getEduLevels(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "eduBALK", resume.getEduBusinessAdmLevels(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "eduBAL", resume.getEduBusinessAdmLevels(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "eduMajor", resume.getEduMajors(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "eduSN", resume.getEduSchoolNames(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "eduSI", resume.getEduSchoolIds(), Field.Store.NO);
 
-		addSetConcatStringIntoDoc(doc, "language", resume.getLanguages(), Field.Store.NO);
-
-		addTextIntoDoc(doc, "cc", resume.getCompanyCurrent(), Field.Store.NO);
-		addStringIntoDoc(doc, "cic", resume.getCompanyIdCurrent(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "csc", resume.getCompanySizeCurrent(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "cp", resume.getCompaniesPast(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "cip", resume.getCompanyIdsPast(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "industry", resume.getIndustries(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "tc", resume.getTitlesCurrent(), Field.Store.NO);
-		addSetStringIntoDoc(doc, "ntcK", resume.getNormedTitlesCurrent(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "ntc", resume.getNormedTitlesCurrent(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "tp", resume.getTitlesPast(), Field.Store.NO); // not used for now
-		addSetConcatStringIntoDoc(doc, "ntp", resume.getNormedTitlesPast(), Field.Store.NO); // not used for now
-		addSetStringIntoDoc(doc, "nsK", resume.getNormedSkills(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "ns", resume.getNormedSkills(), Field.Store.NO);
-		addSetConcatStringIntoDoc(doc, "rs", resume.getReviewedSkills(), Field.Store.NO);
-
-		addTextIntoDoc(doc, "loc", resume.getLocRaw(), Field.Store.NO);
-		addStringIntoDoc(doc, "locFMT", resume.getLocFmt(), Field.Store.NO);
-		addStringIntoDoc(doc, "locType", resume.getLocType(), Field.Store.NO);
-		addStringIntoDoc(doc, "continent", resume.getLocContinent(), Field.Store.NO);
-		addStringIntoDoc(doc, "country", resume.getLocNation(), Field.Store.NO);
-		addStringIntoDoc(doc, "state", resume.getLocState(), Field.Store.NO);
-		addStringIntoDoc(doc, "city", resume.getLocCity(), Field.Store.NO); // not used for now
-		Field distanceField = new LatLonPoint("distance", resume.getLocLat(), resume.getLocLon());
-		doc.add(distanceField);
-
-		addTextIntoDoc(doc, "ts", resume.getTitleSkill(), Field.Store.NO); // not used for now
-		addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
-
-		
-		try{
-			// System.out.println(resume.getUid());
-			// System.out.println(embedding[127]);
-			rocksDBClient.set(resume.getUid(), embedding);
-		}catch(Exception e){
-			logger.error("fail to set embedding: " + embedding, e);
-		}
-		
-
-		// logger.info("set uid->vector to pika,uid:"+resume.getUid());
-		try {
-			writer.addDocument(doc);
-		
-		} catch (IOException e) {
-			logger.error("fail to add document: " + resume, e);
+		@Override
+		public void run() {
+			long t1 = System.currentTimeMillis();
+			JsonNode docs=RequestParser.getPostParameter(RawDataReader.readJsonFile(jsonFilePath));
+			long t2 = System.currentTimeMillis();
+			JsonNode embeddings=RequestParser.getPostParameter(RawDataReader.readJsonFile(embeddingFilePath)).get("embedding");
+			long t3 = System.currentTimeMillis();
+			if(docs.size()!=embeddings.size()){
+				logger.warn("invalid raw data,raw data json does not match embedding json,json file:"+jsonFilePath);
+			}
+			List<AddDocThread> threadList = new ArrayList<>();
+			for (int j = 0; j < threadNumPerJson; j++) {
+				threadList.add(new AddDocThread(jsonFilePath + "___" + j));
+			}
+			for(int j = 0; j < docs.size(); j++){
+				threadList.get(j % threadNumPerJson).addDoc(docs.get(j), embeddings.get(j));
+			}
+			for (int j = 0; j < threadNumPerJson; j++) {
+				threadList.get(j).start();
+			}
+			for (int j = 0; j < threadNumPerJson; j++) {
+				try {
+					threadList.get(j).join();
+				} catch (InterruptedException e) {
+					logger.error("thread interrupted", e);
+				}
+			}
+			threadList.clear();
+			long t4 = System.currentTimeMillis();
+			logger.info("add "+embeddings.size()+" to lucene and rocksDB,json file: "+jsonFilePath + "|" + (t4 - t3) + "|" + (t3 - t2) + "|" + (t2 - t1));
 		}
 	}
-	// public void addDocs(List<Resume> resumes) {
-		
-	// 	requestCount++;
-	// 	for (Resume resume : resumes) {
-	// 		addDocument(resume);
-	// 	}
-	// 	logger.info("add finish,num:"+resumes.size()+",request count:"+requestCount);
 
-	
-		
-	// }
+	public void process(DistributeInfo distributeInfo){
+		IndexBuilderHelper helper=new IndexBuilderHelper(distributeInfo);
+		List<String>rawJsonList=helper.getRawJsonList();
+		List<String>embeddingList=helper.getEmbeddingJsonList();
+
+		ExecutorService es = Executors.newFixedThreadPool(threadPoolSize);
+		for(int i=0;i<rawJsonList.size();i++){
+			String rawJsonFilename=RAW_JSON+rawJsonList.get(i);
+			String embeddingFilename=EMBEDDING_JSON+embeddingList.get(i);
+
+			es.submit(new SingleJsonFileTask(rawJsonFilename, embeddingFilename));
+		}
+		es.shutdown();
+	}
 
 	public synchronized void mergeSegments() {
 		try {
@@ -311,7 +376,7 @@ public class IndexBuildService {
 			}else{
 				logger.info(maxDocId+" documents to do clib index");
 			}
-		
+
 
 			int docId = 0;
 			maxDocId=maxDocId-docId;
@@ -329,7 +394,7 @@ public class IndexBuildService {
 				docId+=remainBatchSize;
 			}
 			reader.close();
-			
+
 			int success=clib.FilterKnn_Save(pIvfpqFile);
 			if(success!=1){
 				logger.error("jna :FilterKnn_Save call error,msg:"+clib.FilterKnn_GetErrorMsg() );
@@ -428,7 +493,7 @@ public class IndexBuildService {
 	public int commitAndCheckIndexSize(){
 		try{
 			writer.commit();
-		    SearchService.lazyInit();
+			SearchService.lazyInit();
 			IndexReader indexReader=SearchService.indexReader;
 			int maxDoc=indexReader.maxDoc();
 			int numDocs=indexReader.numDocs();
@@ -436,7 +501,7 @@ public class IndexBuildService {
 				logger.warn("invalid document num for index,numDocs: "+numDocs+",maxDoc:"+maxDoc);
 			}
 			return numDocs;
-			
+
 		}catch(IOException e){
 			e.printStackTrace();
 			return -1;
@@ -448,7 +513,7 @@ public class IndexBuildService {
 		Query query=new TermQuery(new Term("uid",uid));
 		TopDocs topDocs;
 		try {
-            IndexSearcher indexSearcher = SearchService.indexSearcher;
+			IndexSearcher indexSearcher = SearchService.indexSearcher;
 			topDocs = indexSearcher.search(query, 1);
 			if(topDocs.totalHits.value!=1){
 				logger.warn("resume do not exist on this index,uid:",uid);
@@ -457,14 +522,14 @@ public class IndexBuildService {
 				long []id=new long[]{docId};
 				clib.FilterKnn_RemoveVectors(id, 1);
 			}
-			
+
 		} catch (IOException e) {
 			e.printStackTrace();
-			
+
 		}
-		
-	
-		
+
+
+
 	}
 
 	/**

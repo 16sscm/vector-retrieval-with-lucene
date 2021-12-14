@@ -3,7 +3,7 @@ package com.hiretual.search.model;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.hiretual.search.constants.ResumeField;
 import com.hiretual.search.service.IndexBuildService;
-import com.hiretual.search.utils.DateUtils;
+import java.text.SimpleDateFormat;
 import com.hiretual.search.utils.JsonResumeParseUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -417,7 +417,7 @@ public class Resume {
                                 this.titlesCurrent.add(title);
                             }
                             this.normedTitlesCurrent.addAll(nTitles);
-                            this.monthsCurrentRole = DateUtils.getMonthsFromDate(JsonResumeParseUtils.getStringFieldFromJsonNode(position,
+                            this.monthsCurrentRole = getMonthsFromDate(JsonResumeParseUtils.getStringFieldFromJsonNode(position,
                                     ResumeField.POSITION_START_DATE, ""));
                             ccindex = k;
                         } else if (isCurrent) {
@@ -459,7 +459,7 @@ public class Resume {
                         if (map.containsKey(companyName)) {
                             offset = map.get(companyName);
                         }
-                        map.put(companyName, offset + DateUtils.getMonthsFromDate(
+                        map.put(companyName, offset + getMonthsFromDate(
                                 JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_START_DATE, ""),
                                 JsonResumeParseUtils.getStringFieldFromJsonNode(position, ResumeField.POSITION_END_DATE, "")));
                         k++;
@@ -945,6 +945,53 @@ public class Resume {
                 + "|reviewedSkills:" + String.join(",", reviewedSkills) + "|locRaw:" + locRaw + "|locFmt:" + locFmt + "|locType:" + locType
                 + "|locContinent:" + locContinent + "|locNation:" + locNation + "|locState:" + locState + "|locCity:" + locCity + "|locLat:"+ locLat
                 + "|locLon:" + locLon + "|titleSkill:" + titleSkill + "|compoundInfo:" + compoundInfo;
+    }
+
+    private SimpleDateFormat positionFormatter = new SimpleDateFormat("MMM yyyy");
+
+    private int getMonthsFromDate(String fromDate, String endDate) {
+        if (fromDate == null || endDate == null) {
+            return 0;
+        }
+        Date fd;
+        try {
+            fd = positionFormatter.parse(fromDate);
+        } catch(Exception e) {
+            return 0;
+        }
+
+        Date ed;
+        try {
+            ed = positionFormatter.parse(endDate);
+        } catch(Exception e) {
+            ed = new Date();
+        }
+        Calendar c1 = Calendar.getInstance();
+        Calendar c2 = Calendar.getInstance();
+        c1.setTime(ed);
+        c2.setTime(fd);
+        int year1 = c1.get(Calendar.YEAR);
+        int year2 = c2.get(Calendar.YEAR);
+        int month1 = c1.get(Calendar.MONTH);
+        int month2 = c2.get(Calendar.MONTH);
+
+        int yearInterval = year1 - year2;
+        if (month1 < month2) {
+            yearInterval--;
+        }
+
+        int monthInterval = (month1 + 12) - month2;
+        monthInterval %= 12;
+        int monthsDiff = yearInterval * 12 + monthInterval + 1;
+        return monthsDiff;
+    }
+
+    private int getMonthsFromDate(String date) {
+        if (date == null || date.length() == 0) {
+            return 0;
+        }
+
+        return getMonthsFromDate(date, positionFormatter.format(new Date()));
     }
 
 //    public static void main(String[] args) {

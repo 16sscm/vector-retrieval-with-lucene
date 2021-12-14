@@ -2,11 +2,9 @@ package com.hiretual.search.utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
+import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -36,6 +34,18 @@ public class RocksDBClient {
             }
        
     }
+    public void batchSet(Map<String, float[]> map) {
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            for (Map.Entry<String, float[]> entry : map.entrySet()) {
+                writeBatch.put(entry.getKey().getBytes(), JedisUtils.serialize(entry.getValue()));
+            }
+            rocksDB.write(new WriteOptions(), writeBatch);
+        } catch (RocksDBException e) {
+            logger.error("fail to batch put", e);
+        }
+
+    }
+
     public float[] get(String key) {
         try {
             return JedisUtils.unserialize(rocksDB.get(key.getBytes()));

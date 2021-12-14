@@ -527,19 +527,19 @@ public class Resume {
             this.compoundInfo = String.join(",",certInfo, highlight, positionInfo, educationInfo, itInfo,
                     String.join(",", this.languages), patentInfo, projectInfo, publicationInfo, String.join(",", this.normedSkills));
 
-            if (jsonNode.has("embedding")) {
-                this.embedding = new float[IndexBuildService.embeddingDimension];
-                Iterator<JsonNode> arrayIterator = jsonNode.get("embedding").iterator();
-                int i = 0;
-                while(arrayIterator.hasNext() && i < this.embedding.length) {
-                    this.embedding[i] = (float) arrayIterator.next().asDouble();
-                    i++;
-                }
-            } else {
-                logger.warn("no embedding " + this.getUid());
-            }
+            // if (jsonNode.has("embedding")) {
+            //     this.embedding = new float[IndexBuildService.embeddingDimension];
+            //     Iterator<JsonNode> arrayIterator = jsonNode.get("embedding").iterator();
+            //     int i = 0;
+            //     while(arrayIterator.hasNext() && i < this.embedding.length) {
+            //         this.embedding[i] = (float) arrayIterator.next().asDouble();
+            //         i++;
+            //     }
+            // } else {
+            //     logger.warn("no embedding " + this.getUid());
+            // }
         } catch (Exception e) {
-            logger.error("fail to convert json to common parameter, input: " + jsonNode.toString(), e);
+            logger.error("fail to convert json to common parameter, input: " + jsonNode, e);
         }
     }
 

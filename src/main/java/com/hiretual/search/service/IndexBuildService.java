@@ -1,11 +1,15 @@
 package com.hiretual.search.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.hiretual.search.filterindex.*;
+import com.hiretual.search.model.DistributeInfo;
 import com.hiretual.search.model.FilterResume;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.utils.GlobalPropertyUtils;
 import com.hiretual.search.utils.JedisUtils;
+import com.hiretual.search.utils.RawDataReader;
 import com.hiretual.search.utils.RequestParser;
+import com.hiretual.search.utils.RocksDBClient;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,6 +39,9 @@ public class IndexBuildService {
 
 	private static final String USER_HOME = System.getProperty("user.home");
 	private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
+	private static final String RAW_JSON = GlobalPropertyUtils.get("raw_json");
+	private static final String EMBEDDING_JSON = GlobalPropertyUtils.get("embedding_json");
+	
 	private static final String MAX_MEMORY = GlobalPropertyUtils.get("max.memory");
 	private static final String EMBEDDING_DIMENSION = GlobalPropertyUtils.get("embedding.dimension");
 	private static String NUM_IVF_CLUSTER = GlobalPropertyUtils.get("num_ivf_cluster");
@@ -51,9 +58,9 @@ public class IndexBuildService {
 	static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
 	public static int numIvfCluster;
 	private static CLib clib = CLib.INSTANCE;
-    private int requestCount=0;
+    
 	@Autowired
-	private JedisUtils jedisUtils;
+	private RocksDBClient rocksDBClient;
 	static {
 		File file = new File(c_index_dir);
 		if (!file.exists()) {
@@ -145,7 +152,42 @@ public class IndexBuildService {
 		doc.add(field);
 	}
 
-	public void addDocument(Resume resume){
+	public void process(DistributeInfo distributeInfo){
+		IndexBuilderHelper helper=new IndexBuilderHelper(distributeInfo);
+		List<String>rawJsonList=helper.getRawJsonList();
+		List<String>embeddingList=helper.getEmbeddingJsonList();
+		for(int i=0;i<rawJsonList.size();i++){
+			
+			String rawJsonFilename=RAW_JSON+rawJsonList.get(i);
+			String embeddingFilename=EMBEDDING_JSON+embeddingList.get(i);
+			// String rawJsonFilename="/root/vector-retrieval-base/src/test/resource/0.json";
+			// String embeddingFilename="/root/vector-retrieval-base/src/test/resource/embedding.json";
+			JsonNode docs=RequestParser.getPostParameter(RawDataReader.readJsonFile(rawJsonFilename));
+			JsonNode embeddings=RequestParser.getPostParameter(RawDataReader.readJsonFile(embeddingFilename)).get("embedding");
+			if(docs.size()!=embeddings.size()){
+				logger.warn("invalid raw data,raw data json does not match embedding json,json file:"+rawJsonFilename);
+				continue;
+			}
+			for(int j=0;j<docs.size();j++){
+				
+				JsonNode doc=docs.get(j);
+				
+				Resume resume=new Resume(doc);
+				
+				JsonNode embeddingNode=embeddings.get(j);
+				float[]embedding = new float[embeddingDimension];
+				Iterator<JsonNode> arrayIterator = embeddingNode.iterator();
+				int k = 0;
+				while(arrayIterator.hasNext() && k < embeddingDimension) {
+					embedding[k] = (float) arrayIterator.next().asDouble();
+					k++;
+				}
+				addDocument(resume, embedding);
+			}
+			logger.info("add "+embeddings.size()+" to lucene and rocksDB,json file: "+rawJsonFilename);
+		}
+	}
+	public void addDocument(Resume resume,float []embedding){
 		
 		Document doc = new Document();
 
@@ -211,11 +253,15 @@ public class IndexBuildService {
 		addTextIntoDoc(doc, "ts", resume.getTitleSkill(), Field.Store.NO); // not used for now
 		addTextIntoDoc(doc, "compound", resume.getCompoundInfo(), Field.Store.NO);
 
-		if(resume.getEmbedding()==null){
-			logger.error("fail to set embedding ,request count : "+requestCount);
+		
+		try{
+			// System.out.println(resume.getUid());
+			// System.out.println(embedding[127]);
+			rocksDBClient.set(resume.getUid(), embedding);
+		}catch(Exception e){
+			logger.error("fail to set embedding: " + embedding, e);
 		}
 		
-		jedisUtils.set(resume.getUid(), resume.getEmbedding());
 
 		// logger.info("set uid->vector to pika,uid:"+resume.getUid());
 		try {
@@ -225,17 +271,17 @@ public class IndexBuildService {
 			logger.error("fail to add document: " + resume, e);
 		}
 	}
-	public void addDocs(List<Resume> resumes) {
+	// public void addDocs(List<Resume> resumes) {
 		
-		requestCount++;
-		for (Resume resume : resumes) {
-			addDocument(resume);
-		}
-		logger.info("add finish,num:"+resumes.size()+",request count:"+requestCount);
+	// 	requestCount++;
+	// 	for (Resume resume : resumes) {
+	// 		addDocument(resume);
+	// 	}
+	// 	logger.info("add finish,num:"+resumes.size()+",request count:"+requestCount);
 
 	
 		
-	}
+	// }
 
 	public synchronized void mergeSegments() {
 		try {
@@ -344,11 +390,11 @@ public class IndexBuildService {
 		int from=0;
 		//can not get pika multithread for the uid is in order
 		for (int i = 0; i < integralBatch; i++) {
-			list.addAll(jedisUtils.mget(uids.subList(from, from+batchSize)));
+			list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+batchSize)));
 			from+=batchSize;
 		}
 		if(remainBatchSize>0){
-			list.addAll(jedisUtils.mget(uids.subList(from, from+remainBatchSize)));
+			list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+remainBatchSize)));
 			from+=remainBatchSize;
 		}
 

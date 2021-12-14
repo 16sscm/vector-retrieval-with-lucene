@@ -10,6 +10,7 @@ public class TerminateBean {
     public void preDestroy() {
         try{
             IndexBuildService.shutDown();
+            RocksDBClient.shutdown();
         }catch(Exception e){
             e.printStackTrace();
         }

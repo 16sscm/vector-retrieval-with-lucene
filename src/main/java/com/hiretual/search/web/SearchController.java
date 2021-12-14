@@ -2,8 +2,10 @@ package com.hiretual.search.web;
 
 import com.hiretual.search.filterindex.KNNQuery;
 import com.hiretual.search.filterindex.KNNResult;
+import com.hiretual.search.model.DistributeInfo;
 import com.hiretual.search.model.Resume;
 import com.hiretual.search.service.IndexBuildService;
+import com.hiretual.search.service.IndexBuilderHelper;
 import com.hiretual.search.service.SearchService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.hiretual.search.utils.JedisUtils;
@@ -34,6 +36,7 @@ public class SearchController {
 
     @Autowired
     IndexBuildService indexBuildService;
+    
 
     @Autowired
     SearchService searchService;
@@ -43,15 +46,10 @@ public class SearchController {
         return "ok\n";
     }
 
-    @RequestMapping(value="/doc/add", method=RequestMethod.POST, produces="application/json;charset=UTF-8")
-    public String insertDocument(HttpServletRequest request) {
+    @RequestMapping(value="/doc/add", method=RequestMethod.POST)
+    public String insertDocument(@RequestBody DistributeInfo distributeInfo) {
         try{
-            JsonNode docs = RequestParser.getPostParameter(request);
-            for(JsonNode doc:docs){
-                Resume resume = new Resume(doc);
-                indexBuildService.addDocument(resume);
-            }
-           
+            indexBuildService.process(distributeInfo);
            
         }catch(Exception e){
             logger.warn("fail to add document",e);

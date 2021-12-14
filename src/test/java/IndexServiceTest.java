@@ -15,11 +15,11 @@ public class IndexServiceTest {
     Logger logger =
     LoggerFactory.getLogger(IndexServiceTest.class);
     // @Test
-    public void testJedisUtils(){
-      JedisUtils jedisUtils=new JedisUtils();
-      jedisUtils.get("tiq_205890fb-cc94-4da7-a246-bb1f9ff8df8e");
+    // public void testJedisUtils(){
+    //   JedisUtils jedisUtils=new JedisUtils();
+    //   jedisUtils.get("tiq_205890fb-cc94-4da7-a246-bb1f9ff8df8e");
       
-    }
+    // }
     // @Test
     public void testResumeJsonStr(){
       FilterResume filterResumes[]=new FilterResume[3];

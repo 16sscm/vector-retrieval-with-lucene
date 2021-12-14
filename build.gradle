@@ -28,10 +28,11 @@ dependencies {
     implementation "org.apache.lucene:lucene-queryparser:8.10.1"
     implementation "net.java.dev.jna:jna:4.5.1"
     implementation 'junit:junit:4.13.1'
-    implementation "org.springframework.data:spring-data-redis:2.3.9.RELEASE"
-    implementation "redis.clients:jedis:3.7.0"
+
+
     implementation "org.springframework.boot:spring-boot-starter-actuator"
     implementation "org.rocksdb:rocksdbjni:6.6.4"
+    implementation "org.apache.logging.log4j:log4j-api:2.15.0"
 }
 
 // copy dependencies to lib

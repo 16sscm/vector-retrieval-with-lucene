@@ -4,7 +4,7 @@ package com.hiretual.search.utils;
 import java.io.*;
 
 
-public class DataReader {
+public class RawDataReader {
     
     public static String readJsonFile(String fileName) {
         String jsonStr = "";

@@ -35,38 +35,4 @@ dependencies {
     implementation "org.apache.logging.log4j:log4j-api:2.15.0"
 }
 
-// copy dependencies to lib
-task copyJar(type: Copy) {
-    // clear current lib
-    delete "$buildDir\\libs\\lib"
-    from configurations.runtimeClasspath
-    into "$buildDir\\libs\\lib"
-    
-}
- 
-// copy config
-task copyConfigFile(type: Copy) {
-    // clear current
-    delete "$buildDir\\libs\\config"
-    from('src/main/resources')
-    into 'build/libs/config'
-}
- 
-// config bootjar
-bootJar {
-    // jar name，
-    archiveBaseName = 'vector-retrieval-base'
-    archiveVersion = '0.0.1'
-    // exclude all existing jar
-    excludes = ["*.jar"]
-    // lib clear and copy
-    dependsOn copyJar
-    // config clear and copy
-    dependsOn copyConfigFile
- 
-    // specify the classpath
-    manifest {
-        attributes "Manifest-Version": 1.0,
-                'Class-Path': configurations.runtimeClasspath.files.collect { "lib/$it.name" }.join(' ')
-    }
-}
+

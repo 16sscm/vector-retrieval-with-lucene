@@ -79,7 +79,7 @@ public class IndexBuildService {
 		}
 		try {
 			logger.info(USER_HOME);
-			Directory dir = FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER));
+			Directory dir = FSDirectory.open(Paths.get(INDEX_FOLDER));
 			IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
 			iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
 			iwc.setRAMBufferSizeMB(maxMemory);
@@ -343,9 +343,16 @@ public class IndexBuildService {
 			String rawJsonFilename=RAW_JSON+rawJsonList.get(i);
 			String embeddingFilename=EMBEDDING_JSON+embeddingList.get(i);
 
+
 			es.submit(new SingleJsonFileTask(rawJsonFilename, embeddingFilename));
 		}
 		es.shutdown();
+		try{
+			writer.commit();
+
+		}catch(IOException e){
+			logger.error("fail to commit indexwriter", e);
+		}
 	}
 
 	public synchronized void mergeSegments() {
@@ -358,7 +365,7 @@ public class IndexBuildService {
 
 			// build ivfpq index for vectors
 			IndexReader reader = DirectoryReader.open(
-					FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+					FSDirectory.open(Paths.get(INDEX_FOLDER)));
 
 			List<LeafReaderContext> list = reader.leaves();
 
@@ -420,8 +427,8 @@ public class IndexBuildService {
 		List<String>uids=new ArrayList<>();
 		List<Integer>docIds=new ArrayList<>();
 
-		// logger.info("reading lucene...");
-		// long t=System.currentTimeMillis();
+		logger.info("reading lucene...");
+		long t=System.currentTimeMillis();
 		for (int j = 0; j < size; j++) {
 
 			Document doc = lr.document(docIdStart, uidField);
@@ -436,7 +443,7 @@ public class IndexBuildService {
 			}
 			docIdStart++;
 		}
-		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
+		logger.info("done!cost:"+(System.currentTimeMillis()-t));
 
 		int existDocSize = docIds.size();
 		long id[] = new long[existDocSize];
@@ -446,14 +453,14 @@ public class IndexBuildService {
 			id[i] = docIds.get(i);
 		}
 		float[] vectors = new float[existDocSize * embeddingDimension];
-		// logger.info("reading pika...");
-		// t=System.currentTimeMillis();
+		logger.info("reading rocksDB...");
+		t=System.currentTimeMillis();
 		int batchSize = 1000;
 		int integralBatch = existDocSize / batchSize;
 		int remainBatchSize = existDocSize % batchSize;
 		List<float[]> list=new ArrayList<>();
 		int from=0;
-		//can not get pika multithread for the uid is in order
+		//can not get rocksDB multithread for the uid is in order
 		for (int i = 0; i < integralBatch; i++) {
 			list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+batchSize)));
 			from+=batchSize;
@@ -463,7 +470,7 @@ public class IndexBuildService {
 			from+=remainBatchSize;
 		}
 
-		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
+		logger.info("done!cost:"+(System.currentTimeMillis()-t));
 		for (int i = 0; i < list.size(); i++) {
 			float[] v = list.get(i);
 
@@ -479,21 +486,23 @@ public class IndexBuildService {
 				// return false;
 			}
 		}
-		// logger.info("add vector...");
-		// t=System.currentTimeMillis();
+		logger.info("add vector...");
+		t=System.currentTimeMillis();
 		String filterResumeJson=RequestParser.getJsonString(filterResumes);
 		int success=clib.FilterKnn_AddVectors(vectors, id, size,filterResumeJson);
 		if(success!=1){
 			logger.warn("jna:FilterKnn_AddVectors call error,msg: "+clib.FilterKnn_GetErrorMsg() );
 		}
-		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
+		logger.info("done!cost:"+(System.currentTimeMillis()-t));
 		logger.info("add vector,size:"+size+",end docid:"+docIdStart+",cost:"+(System.currentTimeMillis()-s));
 	}
 
+	/**
+	 * commit directory to searcher and return the index size
+	 * @return
+	 */
 	public int commitAndCheckIndexSize(){
-		try{
-			writer.commit();
-			SearchService.lazyInit();
+		    SearchService.lazyInit(writer);
 			IndexReader indexReader=SearchService.indexReader;
 			int maxDoc=indexReader.maxDoc();
 			int numDocs=indexReader.numDocs();
@@ -502,10 +511,6 @@ public class IndexBuildService {
 			}
 			return numDocs;
 
-		}catch(IOException e){
-			e.printStackTrace();
-			return -1;
-		}
 
 	}
 	public void deleteResume(Resume resume){

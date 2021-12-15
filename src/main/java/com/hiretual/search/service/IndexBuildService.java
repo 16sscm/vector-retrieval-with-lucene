@@ -502,7 +502,7 @@ public class IndexBuildService {
 	 * @return
 	 */
 	public int commitAndCheckIndexSize(){
-		    SearchService.lazyInit(writer);
+		    SearchService.lazyInit();
 			IndexReader indexReader=SearchService.indexReader;
 			int maxDoc=indexReader.maxDoc();
 			int numDocs=indexReader.numDocs();

@@ -53,7 +53,7 @@ public class SearchService {
      * search will change with writer change
      * @param writer
      */
-    public static void lazyInit(IndexWriter writer){
+    public static void lazyInit(){
         try {
             if(indexReader==null){
                 logger.info("init searcher");
@@ -62,7 +62,8 @@ public class SearchService {
                 logger.info("re-open searcher");
                 
             }
-            indexReader= DirectoryReader.open(writer);
+            indexReader= DirectoryReader.open(
+                FSDirectory.open(Paths.get(INDEX_FOLDER)));
             indexSearcher = new IndexSearcher(indexReader);
             int maxDocNum=indexReader.maxDoc();
             numDocs=indexReader.numDocs();

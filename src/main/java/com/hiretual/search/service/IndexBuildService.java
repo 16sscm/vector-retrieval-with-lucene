@@ -55,8 +55,7 @@ public class IndexBuildService {
 	private static int maxMemory;
 	// private static Map<String, float[]> uidEmbeddingMap = new HashMap<>();
 	public static int embeddingDimension;
-	static String c_index_dir =
-			USER_HOME + GlobalPropertyUtils.get("c_index_dir");
+	static String c_index_dir =GlobalPropertyUtils.get("c_index_dir");
 
 
 	static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");

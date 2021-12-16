@@ -195,7 +195,18 @@ public class QueryConvertor {
                                 if (rangeNode.get("user.education.grad_year").hasNonNull("to")) {
                                     eduGradYearTo = rangeNode.get("user.education.grad_year").get("to").asInt();
                                 }
-                            } else if (rangeNode.has("user.tags.compensation_base_avg") && getFieldsCount(rangeNode) == 1) {
+                            } else if (rangeNode.hasNonNull("user.info_tech.rank_level") && getFieldsCount(rangeNode) == 1) {
+                                JsonNode rankLevelNode = rangeNode.findPath("user.info_tech.rank_level");
+                                String fromLimit = rankLevelNode.get("from").isNull() ? "-1" : rankLevelNode.get("from").asText();
+                                String toLimit = rankLevelNode.get("to").isNull() ? "101" : rankLevelNode.get("to").asText();
+                                int lowerLimit = Integer.parseInt(fromLimit);
+                                int upperLimit = Integer.parseInt(toLimit);
+                                if ((lowerLimit >= 0 || upperLimit <= 100) && upperLimit > lowerLimit) {
+                                    ret.add(IntPoint.newRangeQuery("mcc", lowerLimit, upperLimit - 1));
+                                } else {
+                                    logger.warn("unexpected it_info rank level range node: " + rankLevelNode.toString());
+                                }
+                            } else if (rangeNode.hasNonNull("user.tags.compensation_base_avg") && getFieldsCount(rangeNode) == 1) {
                                 return null;
                             } else {
                                 logger.warn("unexpected range query: " + rangeNode.toString());
@@ -592,8 +603,7 @@ public class QueryConvertor {
                                         }
                                         c++;
                                     }
-                                    if (!mnNode.findPath("user.current_experience.companies").isMissingNode() ||
-                                        !mnNode.findPath("user.current_experience.titles").isMissingNode() ||
+                                    if (!mnNode.findPath("user.current_experience.titles").isMissingNode() ||
                                         !mnNode.findPath("user.current_experience.extend_titles").isMissingNode() ||
                                         !mnNode.findPath("user.current_experience.normed_titles").isMissingNode()) {
                                         for (JsonNode currentPosition : mnNode) {
@@ -1077,7 +1087,7 @@ public class QueryConvertor {
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        String line = null;
 //        try {
-//            File file = new File("/Users/jetyang/esquery_test");
+//            File file = new File("/Users/jetyang/esquery_new");
 //            if (!file.isDirectory()) {
 //                long t1 = System.currentTimeMillis();
 //                BufferedReader br = new BufferedReader(new FileReader(file));
@@ -1092,7 +1102,7 @@ public class QueryConvertor {
 //                    }
 //                    k++;
 //
-//                    if (k % 1 == 0) {
+//                    if (k % 50000 == 0) {
 //                        logger.info(line);
 //                        if (list != null) {
 //                            BooleanQuery.Builder builder = new BooleanQuery.Builder();

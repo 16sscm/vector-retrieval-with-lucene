@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -49,16 +50,14 @@ public class IndexBuildService {
 	private static final String MAX_MEMORY = GlobalPropertyUtils.get("max.memory");
 	private static final String EMBEDDING_DIMENSION = GlobalPropertyUtils.get("embedding.dimension");
 	private static String NUM_IVF_CLUSTER = GlobalPropertyUtils.get("num_ivf_cluster");
-
+    private static final int BATCHSIZE = 100000;
 	private static Analyzer analyzer = new StandardAnalyzer();
 	private static IndexWriter writer;
 	private static int maxMemory;
 	// private static Map<String, float[]> uidEmbeddingMap = new HashMap<>();
 	public static int embeddingDimension;
-	static String c_index_dir =
-			USER_HOME + GlobalPropertyUtils.get("c_index_dir");
-
-
+	static String c_index_dir =GlobalPropertyUtils.get("c_index_dir");
+	LeafReader lr;
 	static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
 	public static int numIvfCluster;
 	private static CLib clib = CLib.INSTANCE;
@@ -79,7 +78,7 @@ public class IndexBuildService {
 		}
 		try {
 			logger.info(USER_HOME);
-			Directory dir = FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER));
+			Directory dir = FSDirectory.open(Paths.get(INDEX_FOLDER));
 			IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
 			iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
 			iwc.setRAMBufferSizeMB(maxMemory);
@@ -343,11 +342,114 @@ public class IndexBuildService {
 			String rawJsonFilename=RAW_JSON+rawJsonList.get(i);
 			String embeddingFilename=EMBEDDING_JSON+embeddingList.get(i);
 
+
 			es.submit(new SingleJsonFileTask(rawJsonFilename, embeddingFilename));
 		}
 		es.shutdown();
-	}
+		try{
+			writer.commit();
 
+		}catch(IOException e){
+			logger.error("fail to commit indexwriter", e);
+		}
+	}
+	private class BatchAddVectorTask implements Runnable {
+		
+		int size;
+		int docIdStart;
+		public BatchAddVectorTask(int size,int docIdStart){
+			this.size=size;
+			this.docIdStart=docIdStart;
+		}
+
+		@Override
+		public void run() {
+			long s=System.currentTimeMillis();
+
+			Set<String> uidField = new HashSet<>();
+			uidField.add("uid");
+			List<String>uids=new ArrayList<>();
+			List<Integer>docIds=new ArrayList<>();
+	
+			logger.info("reading lucene...,start docid:"+docIdStart);
+			long t=System.currentTimeMillis();
+			for (int j = 0; j < size; j++) {
+	
+				Document doc;
+				try {
+					doc = lr.document(docIdStart, uidField);
+					if (doc != null) {
+						String uid = doc.get("uid");
+						uids.add(uid);
+						docIds.add(docIdStart);
+					} else {
+						logger.warn("document is null for docId : " + docIdStart);
+						// return false;
+					}
+					
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				docIdStart++;
+	
+			}
+			logger.info("done!cost:"+(System.currentTimeMillis()-t));
+	
+			int existDocSize = docIds.size();
+			long id[] = new long[existDocSize];
+			FilterResume filterResumes[]=new FilterResume[existDocSize];
+			for (int i = 0; i < existDocSize; i++) {
+				filterResumes[i]=new FilterResume(uids.get(i));
+				id[i] = docIds.get(i);
+			}
+			float[] vectors = new float[existDocSize * embeddingDimension];
+			logger.info("reading rocksDB...");
+			t=System.currentTimeMillis();
+			int batchSize = 1000;
+			int integralBatch = existDocSize / batchSize;
+			int remainBatchSize = existDocSize % batchSize;
+			List<float[]> list=new ArrayList<>();
+			int from=0;
+			//can not get rocksDB multithread for the uid is in order
+			for (int i = 0; i < integralBatch; i++) {
+				list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+batchSize)));
+				from+=batchSize;
+			}
+			if(remainBatchSize>0){
+				list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+remainBatchSize)));
+				from+=remainBatchSize;
+			}
+	
+			logger.info("done!cost:"+(System.currentTimeMillis()-t));
+			for (int i = 0; i < list.size(); i++) {
+				float[] v = list.get(i);
+	
+				if (v != null) {
+					// float[] vector = uidEmbeddingMap.get(uid);
+					for (int j = 0; j < embeddingDimension; j++) {
+						vectors[i * embeddingDimension + j] = v[j];
+					}
+	
+				} else {
+					logger.warn("no vector found for uid: " + uids.get(i)+"，the corresponding docid:"+docIds.get(i)+
+							"，and the corresponding vector will be filled with 0");
+					// return false;
+				}
+			}
+			logger.info("add vector...");
+			t=System.currentTimeMillis();
+			String filterResumeJson=RequestParser.getJsonString(filterResumes);
+			int success=clib.FilterKnn_AddVectors(vectors, id, size,filterResumeJson);
+			if(success!=1){
+				logger.warn("jna:FilterKnn_AddVectors call error,msg: "+clib.FilterKnn_GetErrorMsg() );
+			}
+			logger.info("done!cost:"+(System.currentTimeMillis()-t));
+			logger.info("add vector,size:"+size+",end docid:"+docIdStart+",cost:"+(System.currentTimeMillis()-s));
+			
+		}
+
+	}
 	public synchronized void mergeSegments() {
 		try {
 			logger.info("OK ,I am going to merge,maybe it is horribly costly depends on index scale,please wait...");
@@ -358,7 +460,7 @@ public class IndexBuildService {
 
 			// build ivfpq index for vectors
 			IndexReader reader = DirectoryReader.open(
-					FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+					FSDirectory.open(Paths.get(INDEX_FOLDER)));
 
 			List<LeafReaderContext> list = reader.leaves();
 
@@ -367,7 +469,7 @@ public class IndexBuildService {
 				return;
 			}
 			LeafReaderContext lrc = list.get(0);
-			LeafReader lr = lrc.reader();
+			lr = lrc.reader();
 			int maxDocId = lr.maxDoc();
 			int numDocs=lr.numDocs();
 			if(maxDocId!=numDocs){
@@ -381,17 +483,27 @@ public class IndexBuildService {
 			int docId = 0;
 			maxDocId=maxDocId-docId;
 
-			int batchSize = 5000;//test to be appropriate value,to large will make pika error
-			int integralBatch = maxDocId / batchSize;
-			int remainBatchSize = maxDocId % batchSize;
-
+			//test to be appropriate value,to large will make pika error
+			int integralBatch = maxDocId / BATCHSIZE;
+			int remainBatchSize = maxDocId % BATCHSIZE;
+			ExecutorService es = Executors.newFixedThreadPool(32);
 			for (int i = 0; i < integralBatch; i++) {
-				addVectors(lr,batchSize,docId);
-				docId+=batchSize;
+				// addVectors(BATCHSIZE,docId);
+				es.submit(new BatchAddVectorTask(BATCHSIZE,docId));
+				docId+=BATCHSIZE;
 			}
 			if(remainBatchSize>0){
-				addVectors(lr,remainBatchSize,docId);
+				es.submit(new BatchAddVectorTask(remainBatchSize,docId));
 				docId+=remainBatchSize;
+			}
+			es.shutdown();
+			try {
+				while(!es.awaitTermination(60, TimeUnit.SECONDS)){
+					
+				}
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 			reader.close();
 
@@ -412,88 +524,16 @@ public class IndexBuildService {
 	 * @return false if error occur
 	 * @throws IOException
 	 */
-	private void addVectors(LeafReader lr, int size, int docIdStart) throws IOException {
-		long s=System.currentTimeMillis();
+	private void addVectors( int size, int docIdStart) throws IOException {
 
-		Set<String> uidField = new HashSet<>();
-		uidField.add("uid");
-		List<String>uids=new ArrayList<>();
-		List<Integer>docIds=new ArrayList<>();
-
-		// logger.info("reading lucene...");
-		// long t=System.currentTimeMillis();
-		for (int j = 0; j < size; j++) {
-
-			Document doc = lr.document(docIdStart, uidField);
-
-			if (doc != null) {
-				String uid = doc.get("uid");
-				uids.add(uid);
-				docIds.add(docIdStart);
-			} else {
-				logger.warn("document is null for docId : " + docIdStart);
-				// return false;
-			}
-			docIdStart++;
-		}
-		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
-
-		int existDocSize = docIds.size();
-		long id[] = new long[existDocSize];
-		FilterResume filterResumes[]=new FilterResume[existDocSize];
-		for (int i = 0; i < existDocSize; i++) {
-			filterResumes[i]=new FilterResume(uids.get(i));
-			id[i] = docIds.get(i);
-		}
-		float[] vectors = new float[existDocSize * embeddingDimension];
-		// logger.info("reading pika...");
-		// t=System.currentTimeMillis();
-		int batchSize = 1000;
-		int integralBatch = existDocSize / batchSize;
-		int remainBatchSize = existDocSize % batchSize;
-		List<float[]> list=new ArrayList<>();
-		int from=0;
-		//can not get pika multithread for the uid is in order
-		for (int i = 0; i < integralBatch; i++) {
-			list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+batchSize)));
-			from+=batchSize;
-		}
-		if(remainBatchSize>0){
-			list.addAll(rocksDBClient.multiGetAsList(uids.subList(from, from+remainBatchSize)));
-			from+=remainBatchSize;
-		}
-
-		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
-		for (int i = 0; i < list.size(); i++) {
-			float[] v = list.get(i);
-
-			if (v != null) {
-				// float[] vector = uidEmbeddingMap.get(uid);
-				for (int j = 0; j < embeddingDimension; j++) {
-					vectors[i * embeddingDimension + j] = v[j];
-				}
-
-			} else {
-				logger.warn("no vector found for uid: " + uids.get(i)+"，the corresponding docid:"+docIds.get(i)+
-						"，and the corresponding vector will be filled with 0");
-				// return false;
-			}
-		}
-		// logger.info("add vector...");
-		// t=System.currentTimeMillis();
-		String filterResumeJson=RequestParser.getJsonString(filterResumes);
-		int success=clib.FilterKnn_AddVectors(vectors, id, size,filterResumeJson);
-		if(success!=1){
-			logger.warn("jna:FilterKnn_AddVectors call error,msg: "+clib.FilterKnn_GetErrorMsg() );
-		}
-		// logger.info("done!cost:"+(System.currentTimeMillis()-t));
-		logger.info("add vector,size:"+size+",end docid:"+docIdStart+",cost:"+(System.currentTimeMillis()-s));
 	}
 
+	/**
+	 * commit directory to searcher and return the index size
+	 * @return
+	 */
 	public int commitAndCheckIndexSize(){
-		try{
-			writer.commit();
-			SearchService.lazyInit();
+		    SearchService.lazyInit();
 			IndexReader indexReader=SearchService.indexReader;
 			int maxDoc=indexReader.maxDoc();
 			int numDocs=indexReader.numDocs();
@@ -502,10 +542,6 @@ public class IndexBuildService {
 			}
 			return numDocs;
 
-		}catch(IOException e){
-			e.printStackTrace();
-			return -1;
-		}
 
 	}
 	public void deleteResume(Resume resume){

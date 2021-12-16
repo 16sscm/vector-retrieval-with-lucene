@@ -21,11 +21,18 @@ public class RocksDBClient {
     private static Logger logger=LoggerFactory.getLogger(RocksDBClient.class);
     private static RocksDB rocksDB;
     private static String path = GlobalPropertyUtils.get("rocksDB");
+    private static String mode = GlobalPropertyUtils.get("rocksDB_mode");
     static Options options = new Options();
     static {
         options.setCreateIfMissing(true);
+        
         try {
-            rocksDB = RocksDB.open(options,path);
+            if(mode.equals("read")){
+                rocksDB=RocksDB.openReadOnly(path);
+            }else{
+                rocksDB = RocksDB.open(options,path);
+            }
+            
         } catch (RocksDBException e) {
             logger.error("fail to init rocketsDB ",e);
            
@@ -110,6 +117,7 @@ public class RocksDBClient {
     }
 
     public static void shutdown(){
+        
         rocksDB.close();
     }
     public static void main(String[] args) throws RocksDBException {

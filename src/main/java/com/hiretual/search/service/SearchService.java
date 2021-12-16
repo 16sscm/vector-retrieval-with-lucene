@@ -63,7 +63,7 @@ public class SearchService {
                 
             }
             indexReader= DirectoryReader.open(
-                FSDirectory.open(Paths.get(USER_HOME + INDEX_FOLDER)));
+                FSDirectory.open(Paths.get(INDEX_FOLDER)));
             indexSearcher = new IndexSearcher(indexReader);
             int maxDocNum=indexReader.maxDoc();
             numDocs=indexReader.numDocs();

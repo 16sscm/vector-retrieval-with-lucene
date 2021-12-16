@@ -395,6 +395,30 @@ public class QueryConvertor {
                                         }
                                         c++;
                                     }
+                                    if (!shouldNode.findPath("user.education.education_level.keyword").isMissingNode() ||
+                                        !shouldNode.findPath("user.tags.business_administration_level.keyword").isMissingNode()) {
+                                        BooleanQuery.Builder elbq = new BooleanQuery.Builder();
+                                        int mcounter = 0;
+                                        for (JsonNode elNode : shouldNode) {
+                                            if (!elNode.findPath("user.education.education_level.keyword").isMissingNode()) {
+                                                for (JsonNode eduLevel : elNode.get("terms").get("user.education.education_level.keyword")) {
+                                                    elbq.add(new TermQuery(new Term("eduLevel", eduLevel.asText().toLowerCase())), BooleanClause.Occur.SHOULD);
+                                                    mcounter++;
+                                                }
+                                            } else if (!elNode.findPath("user.tags.business_administration_level.keyword").isMissingNode()) {
+                                                for (JsonNode eduBAL : elNode.get("terms").get("user.tags.business_administration_level.keyword")) {
+                                                    elbq.add(new TermQuery(new Term("eduBALK", eduBAL.asText().toLowerCase())), BooleanClause.Occur.SHOULD);
+                                                    mcounter++;
+                                                }
+                                            } else {
+                                                logger.warn("unexpected field found in should education level node: " + elNode.toString());
+                                            }
+                                        }
+                                        if (mcounter > 0) {
+                                            ret.add(elbq.build());
+                                        }
+                                        c++;
+                                    }
                                     if (!shouldNode.findPath("user.education.schools").isMissingNode() ||
                                         !shouldNode.findPath("user.education.education_id").isMissingNode()) {
                                         BooleanQuery.Builder ebq = new BooleanQuery.Builder();
@@ -570,6 +594,7 @@ public class QueryConvertor {
                                     }
                                     if (!mnNode.findPath("user.current_experience.companies").isMissingNode() ||
                                         !mnNode.findPath("user.current_experience.titles").isMissingNode() ||
+                                        !mnNode.findPath("user.current_experience.extend_titles").isMissingNode() ||
                                         !mnNode.findPath("user.current_experience.normed_titles").isMissingNode()) {
                                         for (JsonNode currentPosition : mnNode) {
                                             if (!currentPosition.findPath("user.current_experience.companies").isMissingNode()) {
@@ -580,10 +605,15 @@ public class QueryConvertor {
                                                 String companyTitle = currentPosition.findPath("user.current_experience.titles").get("query").asText();
                                                 excludebq.add(queryBuilder.createPhraseQuery("tc", companyTitle), BooleanClause.Occur.MUST_NOT);
                                                 excludeCount++;
-                                            } else if (!currentPosition.findPath("user.current_experience.normed_titles").isMissingNode()) {
-                                                String companyNormedTitle = currentPosition.findPath("user.current_experience.normed_titles").get("query").asText();
-                                                excludebq.add(queryBuilder.createPhraseQuery("ntc", companyNormedTitle), BooleanClause.Occur.MUST_NOT);
+                                            } else if (!currentPosition.findPath("user.current_experience.extend_titles").isMissingNode()) {
+                                                String companyTitle = currentPosition.findPath("user.current_experience.extend_titles").get("query").asText();
+                                                excludebq.add(queryBuilder.createPhraseQuery("tc", companyTitle), BooleanClause.Occur.MUST_NOT);
                                                 excludeCount++;
+                                            } else if (!currentPosition.findPath("user.current_experience.normed_titles").isMissingNode()) {
+                                                for (JsonNode companyNormedTitle : currentPosition.findPath("user.current_experience.normed_titles")) {
+                                                    excludebq.add(new TermQuery(new Term("ntcK", companyNormedTitle.asText().toLowerCase())), BooleanClause.Occur.MUST_NOT);
+                                                    excludeCount++;
+                                                }
                                             } else {
                                                 logger.warn("unexpected must not currentPosition phrase match: " + currentPosition.toString());
                                             }
@@ -1047,7 +1077,7 @@ public class QueryConvertor {
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        String line = null;
 //        try {
-//            File file = new File("/Users/jetyang/esquery");
+//            File file = new File("/Users/jetyang/esquery_test");
 //            if (!file.isDirectory()) {
 //                long t1 = System.currentTimeMillis();
 //                BufferedReader br = new BufferedReader(new FileReader(file));
@@ -1062,7 +1092,7 @@ public class QueryConvertor {
 //                    }
 //                    k++;
 //
-//                    if (k % 11900 == 0) {
+//                    if (k % 1 == 0) {
 //                        logger.info(line);
 //                        if (list != null) {
 //                            BooleanQuery.Builder builder = new BooleanQuery.Builder();

@@ -88,6 +88,7 @@ public class SearchController {
         List<Query> queries = QueryConvertor.convertESQuery(esQuery);
         long t3 = System.currentTimeMillis();
         if(queries==null){
+            logger.warn("fail to convert es query return null ");
             return null;
         }
        

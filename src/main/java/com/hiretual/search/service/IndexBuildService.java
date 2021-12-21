@@ -308,6 +308,7 @@ public class IndexBuildService {
 			long t3 = System.currentTimeMillis();
 			if(docs.size()!=embeddings.size()){
 				logger.warn("invalid raw data,raw data json does not match embedding json,json file:"+jsonFilePath);
+				return;
 			}
 			List<AddDocThread> threadList = new ArrayList<>();
 			for (int j = 0; j < threadNumPerJson; j++) {
@@ -346,6 +347,15 @@ public class IndexBuildService {
 			es.submit(new SingleJsonFileTask(rawJsonFilename, embeddingFilename));
 		}
 		es.shutdown();
+		try {
+			while(!es.awaitTermination(5, TimeUnit.SECONDS)){
+		
+			}
+		} catch (InterruptedException e) {
+			logger.error("awaitTermination error",e);
+			
+		}
+		logger.info("all task done,commit lucene writer");
 		try{
 			writer.commit();
 
@@ -498,13 +508,14 @@ public class IndexBuildService {
 			}
 			es.shutdown();
 			try {
-				while(!es.awaitTermination(60, TimeUnit.SECONDS)){
+				while(!es.awaitTermination(5, TimeUnit.SECONDS)){
 					
 				}
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("awaitTermination error", e);
+				
 			}
+			logger.info("all task done,close lucene reader,save c index");
 			reader.close();
 
 			int success=clib.FilterKnn_Save(pIvfpqFile);

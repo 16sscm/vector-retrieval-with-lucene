@@ -88,8 +88,8 @@ public interface CLib extends Library {
    * @param[in] query query vector, dimension
    * @param[in] numSearchCluster max number of clusters to search
    * @param[in] numSearchVector max number of vectors to search
-   * @param[in] maxZeroCluster max continuous zero cluster, 0 means no limit.
    * @param[in] minZeroCluster min continuous zero cluster, 0 and 1 have the
+   * @param[in] maxZeroCluster max continuous zero cluster, 0 means no limit.
    * same effect.
    * @param[in] radius distance threshold, 0 means no limit
    * @param[in] pJsonFilter filter description, json format
@@ -99,8 +99,8 @@ public interface CLib extends Library {
    * @return number of searched vectors, <= topK
    */
   long FilterKnn_IvfpqSearch(float[] query, long numSearchCluster,
-                             long numSearchVector, long maxZeroCluster,
-                             long minZeroCluster, float radius,
+                             long numSearchVector, long minZeroCluster,
+                             long maxZeroCluster, float radius,
                              String pJsonFilter, long topK, long[] resultIds,
                              float[] resultDistances);
 

@@ -1,8 +1,10 @@
 package com.hiretual.search.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.hiretual.search.constants.ResumeField;
-import com.hiretual.search.service.IndexBuildService;
+
 import java.text.SimpleDateFormat;
 import com.hiretual.search.utils.JsonResumeParseUtils;
 import org.slf4j.Logger;
@@ -219,6 +221,14 @@ public class Resume {
                 }
                 this.divVeteran = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.VETERAN);
 
+                this.eduBusinessAdmLevels = new HashSet<>();
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.EDUCATION_BAL)) {
+                    String balStr = analytics.get(ResumeField.EDUCATION_BAL).asText();
+                    if (!StringUtils.isEmpty(balStr)) {
+                        this.eduBusinessAdmLevels.add(balStr);
+                    }
+                }
+
                 this.normedSkills = new HashSet<>();
                 if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.SKILL)) {
                     JsonNode skills = analytics.get(ResumeField.SKILL);
@@ -227,13 +237,18 @@ public class Resume {
                         normedSkillInfo.append(skill.asText()).append(',');
                     }
                 }
-                // TODO: switch to real reviewed skills later, no data support
+
                 this.reviewedSkills = new HashSet<>();
-                if (!JsonResumeParseUtils.isJsonNodeNull(basic, ResumeField.SKILL)) {
-                    JsonNode skills = basic.get(ResumeField.SKILL);
-                    for (JsonNode skill : skills) {
-                        this.reviewedSkills.add(skill.asText());
-                        reviewedSkillInfo.append(skill.asText()).append(',');
+                if (!JsonResumeParseUtils.isJsonNodeNull(analytics, ResumeField.REVIEWED_SKILL)) {
+                    String jsonStr = analytics.get(ResumeField.REVIEWED_SKILL).asText();
+                    if (!StringUtils.isEmpty(jsonStr)) {
+                        ObjectMapper objectMapper = new ObjectMapper();
+                        TypeFactory typeFactory = objectMapper.getTypeFactory();
+                        List<String> skillList = objectMapper.readValue(jsonStr, typeFactory.constructCollectionType(List.class, String.class));
+                        for (String skill : skillList) {
+                            this.reviewedSkills.add(skill);
+                            reviewedSkillInfo.append(skill).append(',');
+                        }
                     }
                 }
 
@@ -324,7 +339,6 @@ public class Resume {
 
             this.eduDegrees = new HashSet<>();
             this.eduLevels = new HashSet<>();
-            this.eduBusinessAdmLevels = new HashSet<>(); // TODO: no data support
             this.eduMajors = new HashSet<>();
             this.eduSchoolNames = new HashSet<>();
             this.eduSchoolIds = new HashSet<>();
@@ -997,10 +1011,11 @@ public class Resume {
 //    public static void main(String[] args) {
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        try {
-//            File file = new File("/Users/jetyang/resume_sample");
+//            File file = new File("/Users/jetyang/resume_sample_20211222");
 //            if (file.isDirectory()) {
 //                File[] filelist = file.listFiles();
 //                for (int i = 0; i < filelist.length; i++) {
+//                    boolean flag = true;
 //                    String fn = filelist[i].getAbsolutePath();
 //                    if (fn.endsWith("json")) {
 //                        logger.info(filelist[i].getAbsolutePath());
@@ -1012,8 +1027,13 @@ public class Resume {
 //                        for (JsonNode node : jsonArray) {
 //                            Resume resume = new Resume(node);
 //                            k++;
+//                            if (flag && resume.getEduBusinessAdmLevels().size() > 0) {
+//                                logger.info("No. " + k + ": " + node.toString());
+//                                logger.info(resume.toString());
+//                                flag = false;
+//                            }
 //                            if (k % 10000 == 0) {
-//                                logger.info(node.toString());
+//                                logger.info("No. " + k + ": " + node.toString());
 //                                logger.info(resume.toString());
 //                            }
 //                        }

@@ -536,10 +536,10 @@ public class QueryConvertor {
                                             String toDate = dr.get("to").isNull() ? "" : dr.get("to").asText();
                                             int lowerLimit = getFirstNum(toDate);
                                             int upperLimit = getFirstNum(fromDate);
-                                            if (lowerLimit >= 0 & upperLimit > lowerLimit) {
+                                            if ((lowerLimit >= 0) && (upperLimit > lowerLimit)) {
                                                 dateRangebq.add(IntPoint.newRangeQuery("mcc", lowerLimit, upperLimit), BooleanClause.Occur.SHOULD);
                                                 mcounter++;
-                                            } else if (lowerLimit > 0 & upperLimit == 0) {
+                                            } else if ((lowerLimit > 0) && (upperLimit == 0)) {
                                                 dateRangebq.add(IntPoint.newRangeQuery("mcc", lowerLimit, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
                                                 mcounter++;
                                             } else {
@@ -560,10 +560,10 @@ public class QueryConvertor {
                                             String toDate = dr.get("to").isNull() ? "" : dr.get("to").asText();
                                             int lowerLimit = getFirstNum(toDate);
                                             int upperLimit = getFirstNum(fromDate);
-                                            if (lowerLimit >= 0 & upperLimit > lowerLimit) {
+                                            if ((lowerLimit >= 0) && (upperLimit > lowerLimit)) {
                                                 dateRangebq.add(IntPoint.newRangeQuery("mcr", lowerLimit * 12, upperLimit * 12), BooleanClause.Occur.SHOULD);
                                                 mcounter++;
-                                            } else if (lowerLimit > 0 & upperLimit == 0) {
+                                            } else if ((lowerLimit > 0) && (upperLimit == 0)) {
                                                 dateRangebq.add(IntPoint.newRangeQuery("mcr", lowerLimit * 12, Integer.MAX_VALUE), BooleanClause.Occur.SHOULD);
                                                 mcounter++;
                                             } else {

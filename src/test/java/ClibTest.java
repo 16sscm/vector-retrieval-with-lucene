@@ -13,9 +13,9 @@ public class ClibTest {
     String c_index_dir = USER_HOME + GlobalPropertyUtils.get("c_index_dir");
 
     String pFlatFile = c_index_dir + GlobalPropertyUtils.get("flat_file");
-    String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
+    String pIvfpqFile = c_index_dir ;
 
-    @Test
+    // @Test
     public void testSearch() {
         int suc = cLib.FilterKnn_InitLibrary(128, 10000, 2, 256, "/root/ivf_10000_pq_2_256.bin");
         double[] queryD = new double[] {
@@ -109,11 +109,11 @@ public class ClibTest {
         System.out.println("done!cost:" + (System.currentTimeMillis() - t));
         System.out.println(suc1 + "ttt");
 
-        System.out.println("saving data...");
-        t = System.currentTimeMillis();
-        int suc2 = cLib.FilterKnn_Save(pIvfpqFile);
-        System.out.println("done!cost:" + (System.currentTimeMillis() - t));
-        System.out.println(suc2 + "tttt");
+        // System.out.println("saving data...");
+        // t = System.currentTimeMillis();
+        // int suc2 = cLib.FilterKnn_Save(pIvfpqFile);
+        // System.out.println("done!cost:" + (System.currentTimeMillis() - t));
+        // System.out.println(suc2 + "tttt");
 
         float[] query = new float[128];
         for (int i = 0; i < 128; i++) {

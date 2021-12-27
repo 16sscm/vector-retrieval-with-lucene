@@ -50,6 +50,7 @@ public class IndexBuildService {
 	private static final String MAX_MEMORY = GlobalPropertyUtils.get("max.memory");
 	private static final String EMBEDDING_DIMENSION = GlobalPropertyUtils.get("embedding.dimension");
 	private static String NUM_IVF_CLUSTER = GlobalPropertyUtils.get("num_ivf_cluster");
+	private static String mode = GlobalPropertyUtils.get("mode");
     private static final int BATCHSIZE = 100000;
 	private static Analyzer analyzer = new StandardAnalyzer();
 	private static IndexWriter writer;
@@ -58,7 +59,7 @@ public class IndexBuildService {
 	public static int embeddingDimension;
 	static String c_index_dir =GlobalPropertyUtils.get("c_index_dir");
 	LeafReader lr;
-	static String pIvfpqFile = c_index_dir + GlobalPropertyUtils.get("ivfpq_file");
+	static String pIvfpqFile = c_index_dir ;
 	public static int numIvfCluster;
 	private static CLib clib = CLib.INSTANCE;
 
@@ -67,7 +68,7 @@ public class IndexBuildService {
 	static {
 		File file = new File(c_index_dir);
 		if (!file.exists()) {
-			file.mkdir();
+			logger.error("error,no c index,c_index_dir:",c_index_dir);
 		}
 		try {
 			maxMemory = Integer.parseInt(MAX_MEMORY);
@@ -77,12 +78,17 @@ public class IndexBuildService {
 			logger.warn("fail to initialize max memory for index writer");
 		}
 		try {
-			logger.info(USER_HOME);
-			Directory dir = FSDirectory.open(Paths.get(INDEX_FOLDER));
-			IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
-			iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
-			iwc.setRAMBufferSizeMB(maxMemory);
-			writer = new IndexWriter(dir, iwc);
+			if(mode.equals("search")){
+				logger.info("search mode,open no writer");
+			}else{
+				logger.info("open index writer,dir:"+INDEX_FOLDER);
+				Directory dir = FSDirectory.open(Paths.get(INDEX_FOLDER));
+				IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
+				iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
+				iwc.setRAMBufferSizeMB(maxMemory);
+				writer = new IndexWriter(dir, iwc);
+			}
+			
 		} catch (IOException e) {
 			logger.warn("fail to initialize index writer");
 		}

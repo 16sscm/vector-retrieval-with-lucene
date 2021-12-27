@@ -33,6 +33,7 @@ public class SearchService {
     private static final String USER_HOME = System.getProperty("user.home");
     private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
     private static final String SEARCH_THRESHOLD=GlobalPropertyUtils.get("search.threshold");
+    private static String mode = GlobalPropertyUtils.get("mode");
     // private static  Analyzer analyzer = new StandardAnalyzer();
     protected static  DirectoryReader indexReader;
     protected static IndexSearcher indexSearcher;
@@ -46,7 +47,10 @@ public class SearchService {
         } catch(NumberFormatException e) {
             logger.warn("fail to initialize search threshold for index searcher");
         }
-       
+        if(mode.equals("search")){
+            lazyInit();
+            logger.info("search mode,open search directly");
+        }
        
     }
     /**

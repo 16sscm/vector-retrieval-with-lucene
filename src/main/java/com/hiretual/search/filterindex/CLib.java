@@ -6,9 +6,9 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 
 public interface CLib extends Library {
-  String home = System.getProperty("user.home");
+ 
   String clibFile = GlobalPropertyUtils.get("c_lib_file");
-  CLib INSTANCE = Native.loadLibrary(home + clibFile, CLib.class);
+  CLib INSTANCE = Native.loadLibrary(clibFile, CLib.class);
   /**
    * get the error message
    * @return error String

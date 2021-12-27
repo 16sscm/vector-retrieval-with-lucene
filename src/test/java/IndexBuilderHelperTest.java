@@ -5,7 +5,7 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 
 public class IndexBuilderHelperTest {
-    @Test
+    // @Test
     public void testGetFileList(){
         DistributeInfo info=new DistributeInfo(4,3);
         IndexBuilderHelper helper=new IndexBuilderHelper(info);

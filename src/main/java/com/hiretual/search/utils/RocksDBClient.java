@@ -21,16 +21,18 @@ public class RocksDBClient {
     private static Logger logger=LoggerFactory.getLogger(RocksDBClient.class);
     private static RocksDB rocksDB;
     private static String path = GlobalPropertyUtils.get("rocksDB");
-    private static String mode = GlobalPropertyUtils.get("rocksDB_mode");
+    private static String mode = GlobalPropertyUtils.get("mode");
     static Options options = new Options();
     static {
         options.setCreateIfMissing(true);
         
         try {
-            if(mode.equals("read")){
-                rocksDB=RocksDB.openReadOnly(path);
-            }else{
+            if(mode.equals("search")){
+                logger.info("search mode,open no rocksDB");
+            }
+            else{
                 rocksDB = RocksDB.open(options,path);
+                logger.info("write mode,write to rocksDB");
             }
             
         } catch (RocksDBException e) {

@@ -1,6 +1,8 @@
 .gradle
+/gradle-*
 /build/
 /bin
+/release/resume-search-*.jar
 
 /.vscode
 

@@ -11,8 +11,6 @@ RUN cd /root/ && tar -xzvf FilterKnn.tar.gz
 
 WORKDIR /root
 
-VOLUME ["/data"]
-
 EXPOSE 8898
 
 CMD ["bash", "/root/run.sh"]

@@ -34,7 +34,7 @@ public class SearchController {
     @Autowired
     SearchService searchService;
 
-    @RequestMapping(value="/health/check", method={RequestMethod.GET, RequestMethod.POST})
+    @RequestMapping(value="/health_check", method={RequestMethod.GET, RequestMethod.POST})
     public String healthCheck() {
         return "ok\n";
     }

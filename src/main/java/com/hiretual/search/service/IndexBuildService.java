@@ -1,10 +1,12 @@
 package com.hiretual.search.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hiretual.search.filterindex.*;
 import com.hiretual.search.model.DistributeInfo;
 import com.hiretual.search.model.FilterResume;
 import com.hiretual.search.model.Resume;
+import com.hiretual.search.model.StoreFieldPO;
 import com.hiretual.search.utils.GlobalPropertyUtils;
 import com.hiretual.search.utils.RawDataReader;
 import com.hiretual.search.utils.RequestParser;
@@ -165,10 +167,27 @@ public class IndexBuildService {
 //			logger.info("thread " + id + " done! time cost: " + (t4 - t3) + "|" + (t3 - t2) + "|" + (t2 - t1));
 		}
 
+		private void addStoreField(Document doc,Resume resume){
+			StoreFieldPO storeFieldPO=new StoreFieldPO();
+			storeFieldPO.setAvailability(resume.getAvailability());
+			storeFieldPO.setEduSchoolNames(resume.getEduSchoolNames());
+			storeFieldPO.setHasContact(resume.isHasContact());
+			storeFieldPO.setHasPersonalEmail(resume.isHasPersonalEmail());
+			storeFieldPO.setNormedSkills(resume.getNormedSkills());
+			storeFieldPO.setNormedTitlesCurrent(resume.getNormedTitlesCurrent());
+			storeFieldPO.setReviewedSkills(resume.getReviewedSkills());
+			storeFieldPO.setTitlesCurrent(resume.getTitlesCurrent());
+			storeFieldPO.setTitlesPast(resume.getTitlesPast());
+			storeFieldPO.setYoe(resume.getYoe());
+			String  json=RequestParser.getJsonString(storeFieldPO);
+			Field field = new StringField("raw_json", json.toLowerCase(), Field.Store.YES);
+			doc.add(field);
+			 
+		}
 		private Document convert2Document(Resume resume){
 
 			Document doc = new Document();
-
+			addStoreField(doc,resume);
 			addStringIntoDoc(doc, "uid", resume.getUid(), Field.Store.YES);
 
 			addStringIntoDoc(doc, "yoe", resume.getYoe(), Field.Store.NO);

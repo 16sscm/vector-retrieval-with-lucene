@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import com.hiretual.search.filterindex.*;
 
@@ -126,11 +127,6 @@ public class SearchService {
                 logger.warn("flat search error or got empty result,msg:"+clib.FilterKnn_GetErrorMsg());
                 return null;
             }
-            // KNNQueryResult[] results=new KNNQueryResult[(int)resultNum];
-            // for(int i=0;i<resultNum;i++){
-            //     KNNQueryResult knnQueryResult=new KNNQueryResult((int)resultIds[i], KNNWeight.normalizeScore( resultDistances[i]));
-            //     results[i]=knnQueryResult;
-            // }
             logger.info("count:"+count+"," + (t2-t1) +"|"+ (t3-t2) +"|"+ (t4-t3) +"|"+ (t5-t4));
             return convertFlatResult2KNNResult(resultNum,resultIds,resultDistances);
         }
@@ -167,7 +163,16 @@ public class SearchService {
         String []uids=pointer.getStringArray(0);
         clib.FilterKnn_ReleaseStringArray(pointer);
         for(int i=0;i<size;i++){
-            results[i]=new KNNResult(uids[i], KNNWeight.normalizeScore( resultDistances[i]));
+            
+            String rawJson="";
+            try {
+                Document doc = indexReader.document((int)resultIds[i]);
+                rawJson=doc.get("raw_json");
+            } catch (IOException e) {
+                logger.warn("fail to get raw json from lucene",e);
+            }
+            
+            results[i]=new KNNResult(uids[i], KNNWeight.normalizeScore(resultDistances[i]),rawJson);
         }
         long t2 = System.currentTimeMillis();
         logger.info("convertFlatResult2KNNResult cost: "+(t2-t1));
@@ -186,9 +191,18 @@ public class SearchService {
         Pointer pointer=clib.FilterKnn_GetUids(ids,size);
         String []uids=pointer.getStringArray(0);
         clib.FilterKnn_ReleaseStringArray(pointer);
-        for(int i=0;i<scoreDocs.length;i++){
+       
+        for(int i=0;i<size;i++){
             
-            results[i]=new KNNResult(uids[i], scoreDocs[i].score);
+            String rawJson="";
+            try {
+                Document doc = indexReader.document((int)ids[i]);
+                rawJson=doc.get("raw_json");
+            } catch (IOException e) {
+                logger.warn("fail to get raw json from lucene",e);
+            }
+            
+            results[i]=new KNNResult(uids[i], scoreDocs[i].score,rawJson);
         }
         long t2 = System.currentTimeMillis();
         logger.info("convertScoreDoc2KNNResult cost: "+(t2-t1));

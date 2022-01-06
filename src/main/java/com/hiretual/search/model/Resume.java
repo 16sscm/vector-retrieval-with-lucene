@@ -27,6 +27,7 @@ public class Resume {
     private boolean hasPersonalEmail;
     private boolean hasContact;
     private boolean needSponsorship;
+    private String contactQuality;
     private Set<String> eduDegrees;
     private Set<String> eduLevels;
     private Set<String> eduBusinessAdmLevels;
@@ -92,6 +93,7 @@ public class Resume {
                   boolean hasPersonalEmail,
                   boolean hasContact,
                   boolean needSponsorship,
+                  String contactQuality,
                   Set<String> eduDegrees,
                   Set<String> eduLevels,
                   Set<String> eduBusinessAdmLevels,
@@ -140,6 +142,7 @@ public class Resume {
         this.hasPersonalEmail = hasPersonalEmail;
         this.hasContact = hasContact;
         this.needSponsorship = needSponsorship;
+        this.contactQuality = contactQuality;
         this.eduDegrees = eduDegrees;
         this.eduLevels = eduLevels;
         this.eduBusinessAdmLevels = eduBusinessAdmLevels;
@@ -205,6 +208,7 @@ public class Resume {
                 this.hasPersonalEmail = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.HAS_PERSONAL_EMAIL);
                 this.hasContact = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.HAS_CONTACT);
                 this.needSponsorship = JsonResumeParseUtils.getBoolFieldFromJsonNode(analytics, ResumeField.NEED_VISA_SPONSORSHIP);
+                this.contactQuality = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.CONTACT_QUALITY, "");
 
                 this.availability = JsonResumeParseUtils.getIntFieldFromJsonNode(analytics, ResumeField.AVAILABILITY);
                 this.yoe = JsonResumeParseUtils.getStringFieldFromJsonNode(analytics, ResumeField.EXPERIENCE, "");
@@ -941,10 +945,18 @@ public class Resume {
         this.titleSkill = titleSkill;
     }
 
+    public String getContactQuality() {
+        return contactQuality;
+    }
+
+    public void setContactQuality(String contactQuality) {
+        this.contactQuality = contactQuality;
+    }
+
     @Override
     public String toString() {
         return "uid:" + uid + "|availability:" + availability + "|hasPersonalEmail:" + hasPersonalEmail + "|hasContact:" + hasContact
-                + "|needSponsorship:" + needSponsorship + "|eduDegrees:" + String.join(",", this.eduDegrees)
+                + "|needSponsorship:" + needSponsorship + "|contactQuality:" + contactQuality + "|eduDegrees:" + String.join(",", this.eduDegrees)
                 + "|eduLevels:" + String.join(",", this.eduLevels) + "|eduBusinessAdmLevels:" + String.join(",", this.eduBusinessAdmLevels)
                 + "|eduMajors:" + String.join(",", this.eduMajors) + "|eduSchoolNames:" + String.join(",", this.eduSchoolNames)
                 + "|eduSchoolIds:" + String.join(",", this.eduSchoolIds) + "|itRankLevel:" + itRankLevel + "|yoe:" + yoe

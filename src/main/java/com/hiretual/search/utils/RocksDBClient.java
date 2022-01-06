@@ -25,7 +25,11 @@ public class RocksDBClient {
     static Options options = new Options();
     static {
         options.setCreateIfMissing(true);
-        
+        options.setMaxBackgroundFlushes(4);
+        options.setMaxBackgroundCompactions(4);
+        options.setMaxWriteBufferNumber(8);
+        options.setMinWriteBufferNumberToMerge(4);
+
         try {
             if(mode.equals("search")){
                 logger.info("search mode,open no rocksDB");

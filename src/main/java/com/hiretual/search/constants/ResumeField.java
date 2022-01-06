@@ -14,6 +14,8 @@ public class ResumeField {
 
     public static final String AVAILABILITY = "availability";
 
+    public static final String CONTACT_QUALITY = "contact_quality";
+
     public static final String GENDER = "gender";
 
     public static final String FEMALE = "female";
@@ -78,7 +80,7 @@ public class ResumeField {
 
     public static final String SKILL = "skill";
 
-    public static final String REVIEWED_SKILL = "reviewed_skills";
+    public static final String REVIEWED_SKILL = "parsed_skill";
 
     public static final String INDUSTRY = "industry";
 

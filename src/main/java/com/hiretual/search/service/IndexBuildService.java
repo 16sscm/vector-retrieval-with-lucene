@@ -42,7 +42,8 @@ public class IndexBuildService {
 	private static final Logger logger = LoggerFactory.getLogger(IndexBuildService.class);
 
 	private static final int threadPoolSize = 8; //TODO: put this into config file
-	private static final int threadNumPerJson = 16; //TODO: put this into config file
+	private static final int threadNum4LuceneIndexPerJson = 16; //TODO: put this into config file
+	private static final int threadNum4RocksdbWritePerJson = 8; //TODO: put this into config file
 
 	private static final String USER_HOME = System.getProperty("user.home");
 	private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
@@ -105,66 +106,42 @@ public class IndexBuildService {
 	private class AddDocThread extends Thread {
 		private String id;
 		private List<JsonNode> docs;
-		private List<JsonNode> embeddings;
 
 		public AddDocThread(String tid) {
 			id = tid;
 			docs = new ArrayList<>();
-			embeddings = new ArrayList<>();
 		}
 
-		public AddDocThread(String tid, List<JsonNode> docList, List<JsonNode> embeddingList) {
+		public AddDocThread(String tid, List<JsonNode> docList) {
 			id = tid;
 			docs = docList;
-			embeddings = embeddingList;
 		}
 
-		public void addDoc(JsonNode d, JsonNode e) {
+		public void addDoc(JsonNode d) {
 			docs.add(d);
-			embeddings.add(e);
 		}
 
 		@Override
 		public void run() {
 			long t1 = System.currentTimeMillis();
-			Map<String, float[]> embeddingMap = new HashMap<>();
 			List<Document> docList = new ArrayList<>();
 			for (int i = 0; i < docs.size(); i++){
 				JsonNode doc = docs.get(i);
 				Resume resume = new Resume(doc);
-
-				JsonNode embeddingNode = embeddings.get(i);
-				float[] embedding = new float[embeddingDimension];
-				Iterator<JsonNode> arrayIterator = embeddingNode.iterator();
-				int k = 0;
-				while(arrayIterator.hasNext() && k < embeddingDimension) {
-					embedding[k] = (float) arrayIterator.next().asDouble();
-					k++;
-				}
-				embeddingMap.put(resume.getUid(), embedding);
 				docList.add(convert2Document(resume));
 			}
 			long t2 = System.currentTimeMillis();
 			long t3 = t2;
-			long t4 = t2;
-			if (docList.size() > 0 && docList.size() == embeddingMap.size()) {
-				try{
-					rocksDBClient.batchSet(embeddingMap);
-				}catch(Exception e){
-					logger.error("fail to batch set embedding|" + id, e);
-				}
-				t3 = System.currentTimeMillis();
-				// logger.info("set uid->vector to pika,uid:"+resume.getUid());
+			if (docList.size() > 0) {
 				try {
 					writer.addDocuments(docList);
 				} catch (IOException e) {
 					logger.error("fail to batch add documents|" + id, e);
 				}
-				t4 = System.currentTimeMillis();
-				embeddingMap.clear();
+				t3 = System.currentTimeMillis();
 				docList.clear();
 			}
-//			logger.info("thread " + id + " done! time cost: " + (t4 - t3) + "|" + (t3 - t2) + "|" + (t2 - t1));
+//			logger.info("thread " + id + " done! time cost: " + (t3 - t2) + "|" + (t2 - t1));
 		}
 
 		private void addStoreField(Document doc,Resume resume){
@@ -315,6 +292,65 @@ public class IndexBuildService {
 		}
 	}
 
+	private class WriteEmbeddingThread extends Thread {
+		private String id;
+		private List<JsonNode> embeddings;
+
+		public WriteEmbeddingThread(String tid) {
+			id = tid;
+			embeddings = new ArrayList<>();
+		}
+
+		public WriteEmbeddingThread(String tid, List<JsonNode> embeddingList) {
+			id = tid;
+			embeddings = embeddingList;
+		}
+
+		public void addEmbedding(JsonNode e) {
+			embeddings.add(e);
+		}
+
+		@Override
+		public void run() {
+			long t1 = System.currentTimeMillis();
+			Map<String, float[]> embeddingMap = new HashMap<>();
+			for (int i = 0; i < embeddings.size(); i++){
+				JsonNode embeddingNode = embeddings.get(i);
+				float[] embedding = new float[embeddingDimension];
+				Iterator<JsonNode> arrayIterator = embeddingNode.get("embedding").iterator();
+				int k = 0;
+				while(arrayIterator.hasNext() && k < embeddingDimension) {
+					embedding[k] = (float) arrayIterator.next().asDouble();
+					k++;
+				}
+				embeddingMap.put(embeddingNode.get("user_id").asText(), embedding);
+			}
+			long t2 = System.currentTimeMillis();
+			long t3 = t2;
+			if (embeddingMap.size() > 0) {
+				boolean written = false;
+				int retryCount = 0;
+				while (!written && retryCount < 3) { // retry 3 times if failed to write data into rocksdb
+					try {
+						rocksDBClient.batchSet(embeddingMap);
+						written = true;
+					} catch (Exception e) {
+						logger.error("fail to batch set embedding|retry count: " + retryCount + "|" + id, e);
+						retryCount ++;
+						try {
+							Thread.sleep(1000L);
+						} catch (InterruptedException ee) {
+							logger.error("fail to sleep 1 sec during batch set embedding|" + id, ee);
+						}
+					}
+				}
+				t3 = System.currentTimeMillis();
+				embeddingMap.clear();
+			}
+//			logger.info("thread " + id + " done! time cost: " + (t3 - t2) + "|" + (t2 - t1));
+		}
+	}
+
 	private class SingleJsonFileTask implements Runnable {
 		private String jsonFilePath;
 		private String embeddingFilePath;
@@ -329,30 +365,48 @@ public class IndexBuildService {
 			long t1 = System.currentTimeMillis();
 			JsonNode docs=RequestParser.getPostParameter(RawDataReader.readJsonFile(jsonFilePath));
 			long t2 = System.currentTimeMillis();
-			JsonNode embeddings=RequestParser.getPostParameter(RawDataReader.readJsonFile(embeddingFilePath)).get("embedding");
+			JsonNode embeddings=RequestParser.getPostParameter(RawDataReader.readJsonFile(embeddingFilePath));
 			long t3 = System.currentTimeMillis();
 			if(docs.size()!=embeddings.size()){
 				logger.warn("invalid raw data,raw data json does not match embedding json,json file:"+jsonFilePath);
 				return;
 			}
-			List<AddDocThread> threadList = new ArrayList<>();
-			for (int j = 0; j < threadNumPerJson; j++) {
-				threadList.add(new AddDocThread(jsonFilePath + "___" + j));
+			List<AddDocThread> indexThreadList = new ArrayList<>();
+			List<WriteEmbeddingThread> rockesdbThreadList = new ArrayList<>();
+			for (int j = 0; j < threadNum4LuceneIndexPerJson; j++) {
+				indexThreadList.add(new AddDocThread(jsonFilePath + "___" + j));
+			}
+			for (int j = 0; j < threadNum4RocksdbWritePerJson; j++) {
+				rockesdbThreadList.add(new WriteEmbeddingThread(embeddingFilePath + "___" + j));
 			}
 			for(int j = 0; j < docs.size(); j++){
-				threadList.get(j % threadNumPerJson).addDoc(docs.get(j), embeddings.get(j));
+				indexThreadList.get(j % threadNum4LuceneIndexPerJson).addDoc(docs.get(j));
 			}
-			for (int j = 0; j < threadNumPerJson; j++) {
-				threadList.get(j).start();
+			for(int j = 0; j < embeddings.size(); j++){
+				rockesdbThreadList.get(j % threadNum4RocksdbWritePerJson).addEmbedding(embeddings.get(j));
 			}
-			for (int j = 0; j < threadNumPerJson; j++) {
+			for (int j = 0; j < threadNum4LuceneIndexPerJson; j++) {
+				indexThreadList.get(j).start();
+			}
+			for (int j = 0; j < threadNum4RocksdbWritePerJson; j++) {
+				rockesdbThreadList.get(j).start();
+			}
+			for (int j = 0; j < threadNum4LuceneIndexPerJson; j++) {
 				try {
-					threadList.get(j).join();
+					indexThreadList.get(j).join();
 				} catch (InterruptedException e) {
 					logger.error("thread interrupted", e);
 				}
 			}
-			threadList.clear();
+			for (int j = 0; j < threadNum4RocksdbWritePerJson; j++) {
+				try {
+					rockesdbThreadList.get(j).join();
+				} catch (InterruptedException e) {
+					logger.error("thread interrupted", e);
+				}
+			}
+			indexThreadList.clear();
+			rockesdbThreadList.clear();
 			long t4 = System.currentTimeMillis();
 			logger.info("add "+embeddings.size()+" to lucene and rocksDB,json file: "+jsonFilePath + "|" + (t4 - t3) + "|" + (t3 - t2) + "|" + (t2 - t1));
 		}

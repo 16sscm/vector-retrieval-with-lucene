@@ -13,6 +13,13 @@ public class StoreFieldPO {
     private    Set<String> titlesPast;
     private   Set<String> eduSchoolNames;
     private String yoe;
+    private String contactQuality;
+    public String getContactQuality() {
+        return contactQuality;
+    }
+    public void setContactQuality(String contactQuality) {
+        this.contactQuality = contactQuality;
+    }
     public StoreFieldPO() {
     }
     public String getYoe() {

@@ -156,6 +156,7 @@ public class IndexBuildService {
 			storeFieldPO.setTitlesCurrent(resume.getTitlesCurrent());
 			storeFieldPO.setTitlesPast(resume.getTitlesPast());
 			storeFieldPO.setYoe(resume.getYoe());
+			storeFieldPO.setContactQuality(resume.getContactQuality());
 			String  json=RequestParser.getJsonString(storeFieldPO);
 			Field field = new StringField("raw_json", json.toLowerCase(), Field.Store.YES);
 			doc.add(field);

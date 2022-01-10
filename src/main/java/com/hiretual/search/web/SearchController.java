@@ -73,9 +73,9 @@ public class SearchController {
     public void mergeIndex() {
         indexBuildService.mergeSegments();
     }
-    @RequestMapping(value="/index/commit", method={RequestMethod.GET})
-    public int commitAndCheckIndexSize() {
-        return indexBuildService.commitAndCheckIndexSize();
+    @RequestMapping(value="/index/size", method={RequestMethod.GET})
+    public int getIndexSize() {
+        return searchService.getIndexSize();
     }
     @RequestMapping(value="/search", method=RequestMethod.POST)
     public String search(@RequestBody JsonNode query) {

@@ -50,10 +50,31 @@ public class SearchService {
         }
         if(mode.equals("search")){
             lazyInit();
-            logger.info("search mode,open search directly");
+            logger.info("search mode,open searcher directly");
         }
        
     }
+    /**
+	 * open a temporary indexReader for check ,no matter the segments merged or not
+	 * @return
+	 */
+	public int getIndexSize(){
+        try{
+            DirectoryReader reader= DirectoryReader.open(
+                FSDirectory.open(Paths.get(INDEX_FOLDER)));
+            int maxDoc=reader.maxDoc();
+            int numDocs=reader.numDocs();
+            if(maxDoc!=numDocs){
+                logger.warn("invalid document num for index,numDocs: "+numDocs+",maxDoc:"+maxDoc);
+            }
+            reader.close();
+            return numDocs;
+        }catch(IOException e){
+            logger.error("fail to open indexreader:",e);
+        }
+        return -1;
+       
+}
     /**
      * search will change with writer change
      * @param writer

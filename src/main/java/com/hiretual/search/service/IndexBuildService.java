@@ -595,9 +595,9 @@ public class IndexBuildService {
 				logger.error("awaitTermination error", e);
 				
 			}
-			logger.info("all task done,close lucene reader,save c index");
+			logger.info("all task done,close lucene reader,init index searcher,save c index");
 			reader.close();
-
+			SearchService.lazyInit();
 			int success=clib.FilterKnn_Save(pIvfpqFile);
 			if(success!=1){
 				logger.error("jna :FilterKnn_Save call error,msg:"+clib.FilterKnn_GetErrorMsg() );
@@ -619,22 +619,7 @@ public class IndexBuildService {
 
 	}
 
-	/**
-	 * commit directory to searcher and return the index size
-	 * @return
-	 */
-	public int commitAndCheckIndexSize(){
-		    SearchService.lazyInit();
-			IndexReader indexReader=SearchService.indexReader;
-			int maxDoc=indexReader.maxDoc();
-			int numDocs=indexReader.numDocs();
-			if(maxDoc!=numDocs){
-				logger.warn("invalid document num for index,numDocs: "+numDocs+",maxDoc:"+maxDoc);
-			}
-			return numDocs;
-
-
-	}
+	
 	public void deleteResume(Resume resume){
 		String uid=resume.getUid();
 		Query query=new TermQuery(new Term("uid",uid));

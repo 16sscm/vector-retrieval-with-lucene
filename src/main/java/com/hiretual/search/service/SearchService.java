@@ -114,17 +114,17 @@ public class SearchService {
         logger.info(query.toString());
         //detection
         
-        int count=indexSearcher.count(query);
-        long t2 = System.currentTimeMillis();
+        TopDocs filterTopDocs = indexSearcher.search(query, searchThreshold);//as much as possible
+        int count=(int) filterTopDocs.totalHits.value;
         //if filter result num less then threshold,call the jni bruteforce function with filtered ids and query
         //and the result can be return directly as final result
-        
+        if(count==0){
+            logger.info("count zero,return null");
+            return null;
+        }
+        long t2 = System.currentTimeMillis();
         if (count < searchThreshold) {
-            if(count==0){
-                return null;
-            }
-            TopDocs filterTopDocs = indexSearcher.search(query, count);//as much as possible
-            long t3 = System.currentTimeMillis();
+            
             ScoreDoc[]filterScoreDocs=filterTopDocs.scoreDocs;
             int flatSearchScale=filterScoreDocs.length;
             long []id=new long[flatSearchScale];
@@ -133,14 +133,14 @@ public class SearchService {
             }
             long[]resultIds=new long[size];
             float[]resultDistances=new float[size];
-            long t4 = System.currentTimeMillis();
+            long t3 = System.currentTimeMillis();
             long resultNum=clib.FilterKnn_FlatSearch(kq.getQueryVector(), id, flatSearchScale,0,null,size, resultIds, resultDistances);
-            long t5 = System.currentTimeMillis();
+            long t4 = System.currentTimeMillis();
             if(resultNum<=0){
                 logger.warn("flat search error or got empty result,msg:"+clib.FilterKnn_GetErrorMsg());
                 return null;
             }
-            logger.info("count:"+count+"," + (t2-t1) +"|"+ (t3-t2) +"|"+ (t4-t3) +"|"+ (t5-t4));
+            logger.info("count:"+count+"," + (t2-t1) +"|"+ (t3-t2) +"|"+ (t4-t3) );
             return convertFlatResult2KNNResult(resultNum,resultIds,resultDistances);
         }
         //else if filter result num more then threshold,add knnQuery to builder ,then build a new BooleanQuery,
@@ -152,16 +152,16 @@ public class SearchService {
         builder.add(kq, BooleanClause.Occur.MUST);
         query = builder.build();
          
-        Query query1;
-        BooleanQuery.Builder builder1 = new BooleanQuery.Builder();
-        builder1.add(kq, BooleanClause.Occur.MUST);
-        for(Query q:querys){
-            // logger.info(indexSearcher.count(q) +"|"+q.toString());
-            builder1.add(q, BooleanClause.Occur.FILTER);
-        }
-        query1=builder1.build();
+        // Query query1;
+        // BooleanQuery.Builder builder1 = new BooleanQuery.Builder();
+        // builder1.add(kq, BooleanClause.Occur.MUST);
+        // for(Query q:querys){
+        //     // logger.info(indexSearcher.count(q) +"|"+q.toString());
+        //     builder1.add(q, BooleanClause.Occur.FILTER);
+        // }
+        // query1=builder1.build();
 
-        ScoreDoc[] hits = indexSearcher.search(query1, size).scoreDocs;
+        ScoreDoc[] hits = indexSearcher.search(query, size).scoreDocs;
         long t3 = System.currentTimeMillis();
         logger.info("count:"+count+"," + (t2-t1) +"|"+ (t3-t2));
         // KNNQueryResult[] results = Utils.transformScoreDocToKNNQueryResult(hits);

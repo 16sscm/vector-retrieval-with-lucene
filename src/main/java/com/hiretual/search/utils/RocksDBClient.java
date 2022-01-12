@@ -20,7 +20,8 @@ public class RocksDBClient {
     }
     private static Logger logger=LoggerFactory.getLogger(RocksDBClient.class);
     private static RocksDB rocksDB;
-    private static String path = GlobalPropertyUtils.get("rocksDB");
+    private static final String INDEX_SAVE_DIR=GlobalPropertyUtils.get("index_save_dir");
+    private static String path = INDEX_SAVE_DIR+GlobalPropertyUtils.get("rocksDB");
     private static String mode = GlobalPropertyUtils.get("mode");
     static Options options = new Options();
     static {
@@ -36,7 +37,7 @@ public class RocksDBClient {
             }
             else{
                 rocksDB = RocksDB.open(options,path);
-                logger.info("write mode,write to rocksDB");
+                logger.info("Open rocksDB in write mode,write to rocksDB,path:"+path);
             }
             
         } catch (RocksDBException e) {
@@ -126,27 +127,5 @@ public class RocksDBClient {
         
         rocksDB.close();
     }
-    public static void main(String[] args) throws RocksDBException {
-        RocksDBClient rockeDBClient=new RocksDBClient();
-        // float[] a_float=new float[]{1f,2f};
-        // float[]b_float=new float[]{3f,4f};
-        // rockeDBClient.set("a",a_float);
-        // rockeDBClient.set("b",b_float);
-       
-        // System.out.println("-----");
-        // float[] vals = rockeDBClient.get("b");
-        // for(float val:vals){
-        //     System.out.println(val);
-        // }
-        List<String> keys=new ArrayList<>();
-        keys.add("00045e73-65a2-440d-aa68-28be2f7ca116");
-        keys.add("b");
-        List<float[]>vecs=rockeDBClient.multiGetAsList(keys);
-        for(float[] vec:vecs){
-            for(float val:vec){
-                System.out.println(val);
-            }
-        }
-       
-    }
+   
 }

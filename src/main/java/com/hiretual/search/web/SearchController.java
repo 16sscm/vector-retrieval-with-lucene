@@ -93,7 +93,7 @@ public class SearchController {
         }
        
        
-        int k = 1000;
+        int k = 100;
        
         float[] v = new float[128];
         for (int i = 0; i < 128; i++) {

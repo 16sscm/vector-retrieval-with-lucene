@@ -45,10 +45,12 @@ public class IndexBuildService {
 	private static final int threadNum4LuceneIndexPerJson = 16; //TODO: put this into config file
 	private static final int threadNum4RocksdbWritePerJson = 8; //TODO: put this into config file
 
-	private static final String USER_HOME = System.getProperty("user.home");
-	private static final String INDEX_FOLDER = GlobalPropertyUtils.get("index.folder");
-	private static final String RAW_JSON = GlobalPropertyUtils.get("raw_json");
-	private static final String EMBEDDING_JSON = GlobalPropertyUtils.get("embedding_json");
+	private static final String INDEX_SAVE_DIR=GlobalPropertyUtils.get("index_save_dir");
+	private static final String RESUME_DIR=GlobalPropertyUtils.get("resume_dir");
+
+	private static final String INDEX_FOLDER = INDEX_SAVE_DIR+GlobalPropertyUtils.get("index.folder");
+	private static final String RAW_JSON = RESUME_DIR+GlobalPropertyUtils.get("raw_json");
+	private static final String EMBEDDING_JSON = RESUME_DIR+GlobalPropertyUtils.get("embedding_json");
 
 	private static final String MAX_MEMORY = GlobalPropertyUtils.get("max.memory");
 	private static final String EMBEDDING_DIMENSION = GlobalPropertyUtils.get("embedding.dimension");
@@ -60,7 +62,7 @@ public class IndexBuildService {
 	private static int maxMemory;
 	// private static Map<String, float[]> uidEmbeddingMap = new HashMap<>();
 	public static int embeddingDimension;
-	static String c_index_dir =GlobalPropertyUtils.get("c_index_dir");
+	static String c_index_dir =INDEX_SAVE_DIR+GlobalPropertyUtils.get("c_index_dir");
 	LeafReader lr;
 	static String pIvfpqFile = c_index_dir ;
 	public static int numIvfCluster;
@@ -71,7 +73,7 @@ public class IndexBuildService {
 	static {
 		File file = new File(c_index_dir);
 		if (!file.exists()) {
-			logger.error("error,no c index,c_index_dir:",c_index_dir);
+			logger.error("error,no c index,c_index_dir:"+c_index_dir);
 		}
 		try {
 			maxMemory = Integer.parseInt(MAX_MEMORY);
@@ -84,7 +86,7 @@ public class IndexBuildService {
 			if(mode.equals("search")){
 				logger.info("search mode,open no writer");
 			}else{
-				logger.info("open index writer,dir:"+INDEX_FOLDER);
+				logger.info("Open index writer,dir:"+INDEX_FOLDER);
 				Directory dir = FSDirectory.open(Paths.get(INDEX_FOLDER));
 				IndexWriterConfig iwc = new IndexWriterConfig(analyzer);
 				iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
@@ -100,6 +102,8 @@ public class IndexBuildService {
 		int suc=clib.FilterKnn_InitLibrary(embeddingDimension, numIvfCluster, 2, 256,  pIvfpqFile);
 		if(suc==0){
 			logger.error("fail to initialize clib,msg:"+clib.FilterKnn_GetErrorMsg());
+		}else{
+			logger.info("Load c index,dir:"+pIvfpqFile);
 		}
 	}
 
